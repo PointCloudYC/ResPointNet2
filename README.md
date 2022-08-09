@@ -13,7 +13,7 @@ C. Yin, B. Wang, V. J. L. Gan, M. Wang, and J. C. P. Cheng, “Automated semanti
 
 This is an expert-labeled high-quality industrial LiDAR dataset containing 80 million data points collected from four different industrial scenes covering nearly 4000 m^2. Our dataset consists of five typical semantic categories of plumbing and structural components (i.e., pipes, pumps, tanks, I-shape and rectangular beams).
 
-To be released soon.
+[Download link](https://hkustconnect-my.sharepoint.com/:f:/g/personal/cyinac_connect_ust_hk/EgRPTDHPwkJNgv_PPhi9iioBqH6f6cEelR00TGRSfKzAVA?e=Vx2Qnl).
 
 ## Primary results
 
