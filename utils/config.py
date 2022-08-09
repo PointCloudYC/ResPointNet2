@@ -87,7 +87,9 @@ config.respointnet2.reduction = 'max'
 
 def update_config(config_file):
     with open(config_file) as f:
-        exp_config = edict(yaml.load(f))
+        # use safe_load() instead of load() for the new yaml version
+        # exp_config = edict(yaml.load(f))
+        exp_config = edict(yaml.safe_load(f))
         for k, v in exp_config.items():
             if k in config:
                 if isinstance(v, dict):

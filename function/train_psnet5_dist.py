@@ -34,6 +34,7 @@ def parse_option():
     parser = argparse.ArgumentParser('PSNet scene-segmentation training')
     parser.add_argument('--cfg', type=str, required=True, help='config file')
     parser.add_argument('--data_root', type=str, default='data', help='root director of dataset')
+    parser.add_argument('--dataset_name', type=str, default='psnet5', help='dataset name, support s3dis or psnet5 etc.')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
     parser.add_argument('--batch_size', type=int, help='batch_size')
     parser.add_argument('--num_points', type=int, help='num_points')
@@ -60,6 +61,7 @@ def parse_option():
     update_config(args.cfg)
 
     config.data_root = args.data_root
+    config.dataset_name = args.dataset_name
     config.num_workers = args.num_workers
     config.load_path = args.load_path
     config.print_freq = args.print_freq
