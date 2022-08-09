@@ -1,6 +1,6 @@
 # ResPointNet2 (Automated semantic segmentation of industrial point clouds using ResPointNet++)
 
-by Chao Yin, Boyu Wang, Vincent J.L.Gan, Mingzhu Wang, Jack C.P.Cheng
+by Chao Yin, Boyu Wang, [Vincent J.L.Gan](https://scholar.google.com.hk/citations?user=lBQYX9sAAAAJ&hl=zh-TW), [Mingzhu Wang*](https://www.lboro.ac.uk/departments/abce/staff/mingzhu-wang/), [Jack C.P.Cheng*](https://facultyprofiles.hkust.edu.hk/profiles.php?profile=jack-chin-pang-cheng-cejcheng)
 
 ## Abstract
 
@@ -48,7 +48,6 @@ This is an expert-labeled high-quality industrial LiDAR dataset containing 80 mi
 │           ├── Area_1
 │           ├── Area_2
 │           └── ...
-│           └── processed
 ├── init.sh
 ├── datasets
 ├── function
@@ -70,7 +69,7 @@ function/train_psnet5_dist.py \
 
 ## Evaluation
 
-To evaluate my model on ImageNet, run this command or check the `train-psnet.sh`
+To evaluate the model on PSNet5, run this command or check the `train-psnet.sh`
 
 ```eval
 time python -m torch.distributed.launch --master_port 123456 \
@@ -80,6 +79,7 @@ function/evaluate_psnet5_dist.py \
 --load_path {check_point_file_name}, # e.g., log/psnet/pointwisemlp_dp_fc1_1617578755/ckpt_epoch_190.pth
 ```
 
+`bash train-psnet.sh`
 
 ## Pre-trained Models
 
@@ -105,7 +105,7 @@ Our code is released under MIT License (see LICENSE file for details).
 If you find our work useful in your research, please consider citing:
 
 ```
-@article{se-pseudogrid,
+@article{respointnet2,
     Author = {C. Yin, B. Wang, V. J. L. Gan, M. Wang*, and J. C. P. Cheng*},
     Title = {Automated semantic segmentation of industrial point clouds using ResPointNet++},
     Journal = {Automation in Construction},
