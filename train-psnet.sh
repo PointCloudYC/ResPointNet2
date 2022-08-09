@@ -16,4 +16,4 @@ time python -m torch.distributed.launch --master_port 123456 \
 --nproc_per_node 1 \
 function/evaluate_psnet5_dist.py \
 --cfg cfgs/psnet5/${config_name}.yaml
---load_path check_point_file_name, e.g., log/psnet/pointwisemlp_dp_fc1_1617578755/ckpt_epoch_190.pth
+--load_path {check_point_file_name}, # e.g., log/psnet/pointwisemlp_dp_fc1_1617578755/ckpt_epoch_190.pth
