@@ -127,3 +127,19 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# JetBrains settings
+.idea
+
+# vscode
+.vscode/*
+
+# log
+log/*
+req.txtls
+data/*
+log_eval/*
+
+# predicted data
+gt.txt
+preds.txt

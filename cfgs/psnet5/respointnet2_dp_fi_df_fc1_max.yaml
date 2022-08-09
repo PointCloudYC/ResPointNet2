@@ -1,0 +1,83 @@
+datasets: 'psnet5'
+data_root: ''
+num_classes: 5
+input_features_dim: 4
+batch_size: 2 # to lg size ,if u have lger GPU memory
+# default 15000
+num_points: 15000
+num_workers: 4
+
+# data augmentation
+x_angle_range: 0.0
+y_angle_range: 0.0
+z_angle_range: 3.1415926
+scale_low: 0.7
+scale_high: 1.3
+noise_std: 0.001
+noise_clip: 0.05
+translate_range: 0.0
+color_drop: 0.2
+augment_symmetries:
+  - 1
+  - 0
+  - 0
+  
+# ---------------------------------------------------------------------------- #
+# Model
+# ---------------------------------------------------------------------------- #
+backbone: 'resnet'
+head: 'resnet_scene_seg'
+radius: 0.1
+sampleDl: 0.04
+nsamples:
+  - 26
+  - 31
+  - 38
+  - 41
+  - 39
+npoints:
+  - 4096
+  - 1152
+  - 304
+  - 88
+width: 144
+depth: 2
+bottleneck_ratio: 2
+
+in_radius: 2.0
+num_steps: 2000
+
+# ---------------------------------------------------------------------------- #
+# Training options
+# ---------------------------------------------------------------------------- #
+epochs: 200
+start_epoch: 1
+base_learning_rate: 0.01
+lr_scheduler: 'step'  # step,cosine
+optimizer: 'sgd'
+warmup_epoch:  -1
+lr_decay_steps: 1
+lr_decay_rate: 0.9885531
+weight_decay: 0.001
+momentum: 0.98
+
+# ---------------------------------------------------------------------------- #
+# io and misc
+# ---------------------------------------------------------------------------- #
+load_path: ''
+print_freq: 10
+save_freq: 10
+val_freq: 10
+log_dir: './output'
+local_rank: 0
+amp_opt_level: ''
+rng_seed: 0
+
+# ---------------------------------------------------------------------------- #
+# Local Aggregation options
+# ---------------------------------------------------------------------------- #
+local_aggregation_type: 'respointnet2'
+respointnet2:
+  feature_type: 'dp_fi_df' # dp or dp_fi or dp_fi_df
+  num_mlps: 1
+  reduction: 'max' # max or avg
