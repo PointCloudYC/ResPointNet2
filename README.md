@@ -9,11 +9,11 @@ Currently, as-built building information modeling (BIM) models from point clouds
 ## Citation
 C. Yin, B. Wang, V. J. L. Gan, M. Wang, and J. C. P. Cheng, “Automated semantic segmentation of industrial point clouds using ResPointNet++,” Automation in Construction, vol. 130, p. 103874, 2021, doi: https://doi.org/10.1016/j.autcon.2021.103874.
 
-## Our dataset (industrial real-world point cloud dataset)
+## Our dataset PSNet5 (a real-world industrial point cloud dataset)
 
 This is an expert-labeled high-quality industrial LiDAR dataset containing 80 million data points collected from four different industrial scenes covering nearly 4000 m^2. Our dataset consists of five typical semantic categories of plumbing and structural components (i.e., pipes, pumps, tanks, I-shape and rectangular beams).
 
-[Download link](https://hkustconnect-my.sharepoint.com/:f:/g/personal/cyinac_connect_ust_hk/EgRPTDHPwkJNgv_PPhi9iioBqH6f6cEelR00TGRSfKzAVA?e=Vx2Qnl).
+[Dataset download link](https://hkustconnect-my.sharepoint.com/:f:/g/personal/cyinac_connect_ust_hk/EgRPTDHPwkJNgv_PPhi9iioBqH6f6cEelR00TGRSfKzAVA?e=Vx2Qnl).
 
 ## Primary results
 
