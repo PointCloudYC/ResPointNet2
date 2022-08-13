@@ -8,6 +8,7 @@ import time
 import json
 import random
 import numpy as np
+from datetime import datetime
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
@@ -22,7 +23,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 import datasets.data_utils as d_utils
 from models import build_scene_segmentation
-from datasets import PSNetSeg
+from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_metrics_vis_CM, save_predicted_results_PLY
 from utils.logger import setup_logger
 from utils.config import config, update_config
@@ -33,6 +34,7 @@ def parse_option():
     parser.add_argument('--cfg', type=str, required=True, help='config file')
     parser.add_argument('--load_path', required=True, type=str, metavar='PATH',
                         help='path to latest checkpoint')
+    parser.add_argument('--dataset_name', type=str, default='psnet5', help='dataset name, support psnet5 or psnet12 etc.')
     parser.add_argument('--log_dir', type=str, default='log_eval', help='log dir [default: log_eval]')
     parser.add_argument('--data_root', type=str, default='data', help='root director of dataset')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
@@ -52,9 +54,14 @@ def parse_option():
     config.rng_seed = args.rng_seed
 
     config.local_rank = args.local_rank
+    config.dataset_name = args.dataset_name
 
-    ddir_name = args.cfg.split('.')[-2].split('/')[-1]
-    config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
+    # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
+    # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
+    model_name = args.cfg.split('.')[-2].split('/')[-1] 
+    current_time = datetime.now().strftime('%Y%m%d%H%M%S') #20210518221044 means 2021, 5.18, 22:10:44
+    # an example is log_dir=log/psnet5/respointnet2_time 
+    config.log_dir = os.path.join(args.log_dir, args.dataset_name, f'{model_name}_{int(current_time)}') 
 
     if args.batch_size:
         config.batch_size = args.batch_size
@@ -79,12 +86,22 @@ def get_loader(config):
         d_utils.PointcloudToTensor()
     ])
 
-    val_dataset = PSNetSeg(input_features_dim=config.input_features_dim,
-                           subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
-                           in_radius=config.in_radius, num_points=config.num_points,
-                           num_steps=config.num_steps, num_epochs=20,
-                           data_root=config.data_root, transforms=test_transforms,
-                           split='val')
+    if config.dataset_name =='psnet5':
+        val_dataset = PSNet5Seg(input_features_dim=config.input_features_dim,
+                            subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                            in_radius=config.in_radius, num_points=config.num_points,
+                            num_steps=config.num_steps, num_epochs=20,
+                            data_root=config.data_root, transforms=test_transforms,
+                            split='val')
+    elif config.dataset_name=='psnet12':
+        val_dataset = PSNet12Seg(input_features_dim=config.input_features_dim,
+                            subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                            in_radius=config.in_radius, num_points=config.num_points,
+                            num_steps=config.num_steps, num_epochs=20,
+                            data_root=config.data_root, transforms=test_transforms,
+                            split='val')
+    else:
+        raise NotImplementedError("error! The dataset is supported! Change dataset_name to psnet5 or psnet12")
     val_sampler = torch.utils.data.distributed.DistributedSampler(val_dataset, shuffle=False)
     val_loader = torch.utils.data.DataLoader(val_dataset,
                                              batch_size=config.batch_size,
@@ -278,7 +295,7 @@ if __name__ == "__main__":
     os.makedirs(opt.log_dir, exist_ok=True)
     os.environ["JOB_LOAD_DIR"] = os.path.dirname(config.load_path)
 
-    logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name="psnet_eval")
+    logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name=f'{config.dataset_name}_eval')
     if dist.get_rank() == 0:
         path = os.path.join(config.log_dir, "config.json")
         with open(path, 'w') as f:

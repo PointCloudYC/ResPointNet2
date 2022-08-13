@@ -63,11 +63,11 @@ public:
 		    labels[i][*it] += 1;
 		    i++;
 		}
-		int i = 0;
+		int j = 0;
 		for(vector<int>::iterator it = m_begin; it != m_begin + labels.size(); ++it)
 		{
-		    labels[i][*it] += 1;
-		    i++;
+		    labels[j][*it] += 1;
+		    j++;
 		}
 		return;
 	}

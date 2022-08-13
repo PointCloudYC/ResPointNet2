@@ -1,8 +1,8 @@
 datasets: 'psnet5'
 data_root: ''
-num_classes: 5
+num_classes: 12
 input_features_dim: 4
-batch_size: 6 # set 2, about 8Gb; for 3090 GPU, set to 6
+batch_size: 6 # set 2, about 8Gb, 3 12GB, 6, 24GB; for 3090 GPU, set to 6
 # default 15000
 num_points: 15000
 num_workers: 4

@@ -20,8 +20,10 @@ conda install pytorch==1.4.0 torchvision==0.5.0 cudatoolkit=10.1 -c pytorch -y
 conda install -c conda-forge opencv -y
 pip3 install termcolor tensorboard h5py easydict
 ```
+
 Note that: the latest codes are tested on two Ubuntu settings: 
-- Ubuntu 18.04, Nvidia 3090, CUDA 11.3, PyTorch 1.4 and Python 3.6
+- Ubuntu 18.04, Nvidia 3090 (24Gb), CUDA 11.3, PyTorch 1.4 and Python 3.6
+- Ubuntu 18.04, Nvidia 1080 (8Gb), CUDA 10.1, PyTorch 1.4 and Python 3.6
 
 ### Compile custom CUDA operators
 
@@ -31,9 +33,9 @@ sh init.sh
 
 ## PSNet5 dataset
 
-This is an expert-labeled high-quality industrial LiDAR dataset containing 80 million data points collected from four different industrial scenes covering nearly 4000 m^2. Our dataset consists of five typical semantic categories of plumbing and structural components (i.e., pipes, pumps, tanks, I-shape and rectangular beams).
+PSNet5 dataset contains 80 million data points collected from four different industrial scenes covering nearly 4000 m^2. Five typical semantic categories of plumbing and structural classes are annotaed, including pipe, pump, tank, I-shape beam (ibeam) and rectangular beam(rbeam).
 
-[Dataset download link](https://hkustconnect-my.sharepoint.com/:f:/g/personal/cyinac_connect_ust_hk/EgRPTDHPwkJNgv_PPhi9iioBqH6f6cEelR00TGRSfKzAVA?e=Vx2Qnl).
+Click [here (onedrive link)](https://hkustconnect-my.sharepoint.com/:f:/g/personal/cyinac_connect_ust_hk/EgRPTDHPwkJNgv_PPhi9iioBqH6f6cEelR00TGRSfKzAVA?e=Vx2Qnl) to download our dataset, which is about 0.5Gb large and costs about 2.3 Gb after the unzipping.
 
 - download the dataset and unzip the file to `root/data/PSNet`
 - The file structure should look like:
@@ -58,28 +60,30 @@ This is an expert-labeled high-quality industrial LiDAR dataset containing 80 mi
 
 ## Training
 
-To train the model(s) in the paper, run this command or check the `train-psnet.sh`
+To train the model(s) in the paper, run this command or check the `train-psnet5.sh` for details.
 
 ```train
 time python -m torch.distributed.launch --master_port 12346 \
 --nproc_per_node ${num_gpus} \
-function/train_psnet5_dist.py \
---cfg cfgs/psnet5/${config_name}.yaml
+function/train_psnet_dist.py \
+--dataset_name ${dataset_name} \
+--cfg cfgs/${dataset_name}/${config_name}.yaml
 ```
+
 
 ## Evaluation
 
-To evaluate the model on PSNet5, run this command or check the `train-psnet.sh`
+To evaluate the model on PSNet5, run this command or check the `train-psnet5.sh`
 
 ```eval
-time python -m torch.distributed.launch --master_port 123456 \
---nproc_per_node 1 \
-function/evaluate_psnet5_dist.py \
---cfg cfgs/psnet5/${config_name}.yaml
---load_path {check_point_file_name}, # e.g., log/psnet/pointwisemlp_dp_fc1_1617578755/ckpt_epoch_190.pth
+time python -m torch.distributed.launch --master_port 12346 \
+--nproc_per_node ${num_gpus} \
+function/train_psnet_dist.py \
+--dataset_name ${dataset_name} \
+--cfg cfgs/${dataset_name}/${config_name}.yaml
 ```
 
-`bash train-psnet.sh`
+`bash train-psnet5.sh`
 
 ## Pre-trained Models
 
@@ -95,6 +99,10 @@ TODOs
 ## Acknowledgements
 
 Our codes borrowed a lot from [CloserLook3D](https://github.com/zeliu98/CloserLook3D), [KPConv-pytorch](https://github.com/HuguesTHOMAS/KPConv-PyTorch), [PointNet](https://github.com/charlesq34/pointnet), [PointNet++](https://github.com/erikwijmans/Pointnet2_PyTorch).
+
+## Our other relevant works
+
+- [SE-PseudoGrid: Automated Classification of Piping Components from 3D LiDAR Point Clouds](https://github.com/PointCloudYC/se-pseudogrid)
 
 ## License
 
@@ -113,7 +121,3 @@ If you find our work useful in your research, please consider citing:
     doi = {https://doi.org/10.1016/j.autcon.2021.103874}
    }
 ```
-
-## Our other relevant works
-
-- [SE-PseudoGrid: Automated Classification of Piping Components from 3D LiDAR Point Clouds](https://github.com/PointCloudYC/se-pseudogrid)

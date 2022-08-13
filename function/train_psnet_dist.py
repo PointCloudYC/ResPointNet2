@@ -23,7 +23,7 @@ from torch.nn.parallel import DistributedDataParallel
 
 import datasets.data_utils as d_utils
 from models import build_scene_segmentation # models/build.py
-from datasets import PSNetSeg
+from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_part_metrics
 from utils.lr_scheduler import get_scheduler
 from utils.logger import setup_logger
@@ -34,7 +34,7 @@ def parse_option():
     parser = argparse.ArgumentParser('PSNet scene-segmentation training')
     parser.add_argument('--cfg', type=str, required=True, help='config file')
     parser.add_argument('--data_root', type=str, default='data', help='root director of dataset')
-    parser.add_argument('--dataset_name', type=str, default='psnet5', help='dataset name, support s3dis or psnet5 etc.')
+    parser.add_argument('--dataset_name', type=str, default='psnet5', help='dataset name, support psnet5 or psnet12 etc.')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
     parser.add_argument('--batch_size', type=int, help='batch_size')
     parser.add_argument('--num_points', type=int, help='num_points')
@@ -117,19 +117,37 @@ def get_loader(config):
     test_transforms = transforms.Compose([
         d_utils.PointcloudToTensor(),
     ])
+    if config.dataset_name =='psnet5':
+        train_dataset = PSNet5Seg(input_features_dim=config.input_features_dim,
+                                subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                                in_radius=config.in_radius, num_points=config.num_points,
+                                num_steps=config.num_steps, num_epochs=config.epochs,
+                                data_root=config.data_root, transforms=train_transforms,
+                                split='train')
+        val_dataset = PSNet5Seg(input_features_dim=config.input_features_dim,
+                            subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                            in_radius=config.in_radius, num_points=config.num_points,
+                            num_steps=config.num_steps, num_epochs=20,
+                            data_root=config.data_root, transforms=test_transforms,
+                            split='val')
+    elif config.dataset_name=='psnet12':
+        train_dataset = PSNet12Seg(input_features_dim=config.input_features_dim,
+                                subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                                in_radius=config.in_radius, num_points=config.num_points,
+                                num_steps=config.num_steps, num_epochs=config.epochs,
+                                data_root=config.data_root, transforms=train_transforms,
+                                split='train')
+        val_dataset = PSNet12Seg(input_features_dim=config.input_features_dim,
+                            subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
+                            in_radius=config.in_radius, num_points=config.num_points,
+                            num_steps=config.num_steps, num_epochs=20,
+                            data_root=config.data_root, transforms=test_transforms,
+                            split='val')
+    else:
+        raise NotImplementedError("error! The dataset is supported! Change dataset_name to psnet5 or psnet12")
 
-    train_dataset = PSNetSeg(input_features_dim=config.input_features_dim,
-                             subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
-                             in_radius=config.in_radius, num_points=config.num_points,
-                             num_steps=config.num_steps, num_epochs=config.epochs,
-                             data_root=config.data_root, transforms=train_transforms,
-                             split='train')
-    val_dataset = PSNetSeg(input_features_dim=config.input_features_dim,
-                           subsampling_parameter=config.sampleDl, color_drop=config.color_drop,
-                           in_radius=config.in_radius, num_points=config.num_points,
-                           num_steps=config.num_steps, num_epochs=20,
-                           data_root=config.data_root, transforms=test_transforms,
-                           split='val')
+
+        
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=False)
     train_loader = torch.utils.data.DataLoader(train_dataset,
                                                batch_size=config.batch_size,
@@ -432,7 +450,7 @@ if __name__ == "__main__":
     os.makedirs(opt.log_dir, exist_ok=True)
     os.environ["JOB_LOG_DIR"] = config.log_dir
 
-    logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name="psnet")
+    logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name=config.dataset_name)
     if dist.get_rank() == 0:
         path = os.path.join(config.log_dir, "config.json")
         with open(path, 'w') as f:

@@ -44,11 +44,11 @@ def get_scene_seg_features(input_features_dim, pc, color, height):
     return features.transpose(0, 1).contiguous()
 
 
-class PSNet5Seg(data.Dataset):
+class PSNet12Seg(data.Dataset):
     def __init__(self, input_features_dim, subsampling_parameter,
                  in_radius, num_points, num_steps, num_epochs,
                  color_drop=0, data_root=None, transforms=None, split='train'):
-        """PSNet5 dataset for scene segmentation task.
+        """PSNet12 dataset for scene segmentation task.
 
         Args:
             input_features_dim: input features dimensions, used to choose input feature type
@@ -72,14 +72,41 @@ class PSNet5Seg(data.Dataset):
         self.num_points = num_points
         self.num_steps = num_steps
         self.num_epochs = num_epochs
-        self.label_to_names = {0: 'ibeam',
-                               1: 'pipe',
-                               2: 'pump',
-                               3: 'rectangularbeam',
-                               4: 'tank'}
+        # self.label_to_names = {0: 'ibeam',
+                            #    1: 'pipe',
+                            #    2: 'pump',
+                            #    3: 'rectangularbeam',
+                            #    4: 'tank'}
+        # PSNet12 (PSNet_v3)
+        self.label_to_names = {0: 'duct',
+                               1: 'elbow',
+                               2: 'flange',
+                               3: 'ibeam',
+                               4: 'pipe',
+                               5: 'pump',
+                               6: 'rectangularbeam',
+                               7: 'reducer',
+                               8: 'strainer',
+                               9: 'tank',
+                               10: 'tee',
+                               11: 'valve',}
         self.name_to_label = {v: k for k, v in self.label_to_names.items()}
-        self.train_clouds = ['Area_1', 'Area_2', 'Area_4']
-        self.val_clouds = ['Area_3']
+
+        # self.train_clouds = ['Area_1', 'Area_2', 'Area_4',]
+        # self.val_clouds = ['Area_6', 'Area_12']
+        self.train_clouds = []
+        self.val_clouds = []
+        AREA_ID_LIST_VALIDATION=[6,12] # area_6 and area_12 as validation set
+        for i in range(13): # 13 areas
+            if i+1 in AREA_ID_LIST_VALIDATION: # i.e. Area_6 and Area_12
+                continue
+            self.train_clouds.append(f'Area_{i+1}') # i start from 0, so plus 1
+        print(f'training area list: {self.train_clouds}')
+        for i in AREA_ID_LIST_VALIDATION:
+            self.val_clouds.append(f'Area_{i}') 
+        print(f'validation area list: {self.val_clouds}')
+
+
         if split == 'train':
             self.cloud_names = self.train_clouds
         elif split == 'val':
@@ -87,6 +114,7 @@ class PSNet5Seg(data.Dataset):
         else:
             self.cloud_names = self.val_clouds + self.train_clouds
 
+        # TODO: compute the color_mean and std for the dataset
         self.color_mean = np.array([0.5136457, 0.49523646, 0.44921124])
         self.color_std = np.array([0.18308958, 0.18415008, 0.19252081])
 
@@ -97,7 +125,7 @@ class PSNet5Seg(data.Dataset):
         if not os.path.exists(self.data_root):
             os.makedirs(self.data_root)
         self.folder = 'PSNet'
-        self.data_dir = os.path.join(self.data_root, self.folder, 'PSNet5', 'processed')
+        self.data_dir = os.path.join(self.data_root, self.folder, 'PSNet12', 'processed')
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
 
@@ -116,7 +144,7 @@ class PSNet5Seg(data.Dataset):
                         cloud_points, cloud_colors, cloud_classes = pickle.load(f)
                 else:
                     # Get rooms of the current cloud
-                    cloud_folder = os.path.join(self.data_root, self.folder, 'PSNet5', cloud_name)
+                    cloud_folder = os.path.join(self.data_root, self.folder, 'PSNet12', cloud_name)
                     room_folders = [os.path.join(cloud_folder, room) for room in os.listdir(cloud_folder) if
                                     os.path.isdir(os.path.join(cloud_folder, room))]
                     # Initiate containers
@@ -348,9 +376,9 @@ if __name__ == "__main__":
             d_utils.PointcloudToTensor(),
         ]
     )
-    dset = PSNet5Seg(4, in_radius=2.0, subsampling_parameter=0.04, num_points=15000,
+    dset = PSNet12Seg(4, in_radius=2.0, subsampling_parameter=0.04, num_points=15000,
                     num_steps=2000, num_epochs=600, split='train', transforms=transforms)
-    dset_v = PSNet5Seg(4, in_radius=2.0, subsampling_parameter=0.04, num_points=15000,
+    dset_v = PSNet12Seg(4, in_radius=2.0, subsampling_parameter=0.04, num_points=15000,
                       num_steps=2000, num_epochs=20, split='val', transforms=transforms)
 
     print(dset[0][0])

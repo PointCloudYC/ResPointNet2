@@ -8,4 +8,4 @@ python setup.py install --user
 cd ../..
 
 # pre-processing all datasets, you can modify it according to your needs.
-python datasets/PSNet5.py
+# python datasets/PSNet5.py
