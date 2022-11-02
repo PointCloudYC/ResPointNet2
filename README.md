@@ -1,4 +1,6 @@
-# ResPointNet2 (Automated semantic segmentation of industrial point clouds using ResPointNet++)
+# [ResPointNet++](https://www.sciencedirect.com/science/article/abs/pii/S0926580521003253) (Automated semantic segmentation of industrial point clouds using ResPointNet++) 
+
+Paper link: [Sciencedirect](https://www.sciencedirect.com/science/article/abs/pii/S0926580521003253) or [ResearchGate](https://www.researchgate.net/publication/353826302_Automated_semantic_segmentation_of_industrial_point_clouds_using_ResPointNet)
 
 by Chao Yin, Boyu Wang, [Vincent J.L.Gan](https://scholar.google.com.hk/citations?user=lBQYX9sAAAAJ&hl=zh-TW), [Mingzhu Wang*](https://www.lboro.ac.uk/departments/abce/staff/mingzhu-wang/), [Jack C.P.Cheng*](https://facultyprofiles.hkust.edu.hk/profiles.php?profile=jack-chin-pang-cheng-cejcheng)
 
