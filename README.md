@@ -37,7 +37,7 @@ sh init.sh
 
 PSNet5 dataset contains 80 million data points collected from four different industrial scenes covering nearly 4000 m^2. Five typical semantic categories of plumbing and structural classes are annotaed, including pipe, pump, tank, I-shape beam (ibeam) and rectangular beam(rbeam).
 
-Click [Onedrive](https://1drv.ms/u/s!AowWVUsydD72gYZKV1056JT5DDjoog?e=pbelin) or [BaiduYun-TODO]() to download our dataset, which is about 0.5Gb large and costs about 2.3 Gb after the unzipping.
+Click [Onedrive](https://1drv.ms/u/s!AowWVUsydD72gYZKV1056JT5DDjoog?e=pbelin) or [BaiduYun](https://pan.baidu.com/s/1SzUYkhPgOCru2DB-JwGaSw?pwd=8g2n) to download our dataset, which is about 0.5Gb large and costs about 2.3 Gb after the unzipping.
 
 - download the dataset and unzip the file to `root/data/PSNet`
 - The file structure should look like:
