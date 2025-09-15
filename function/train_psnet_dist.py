@@ -393,7 +393,7 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
                 # collect
                 bsz = points.shape[0]
                 for ib in range(bsz):
-                    mask_i = mask[ib].cpu().numpy().astype(np.bool)
+                    mask_i = mask[ib].cpu().numpy().astype(bool)
                     logits = pred[ib].cpu().numpy()[:, mask_i]
                     inds = input_inds[ib].cpu().numpy()[mask_i]
                     c_i = cloud_label[ib].item()

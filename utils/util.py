@@ -165,7 +165,7 @@ def seg_metrics(num_classes, vote_logits, validation_proj, validation_labels):
     Confs = []
     for logits, proj, targets in zip(vote_logits, validation_proj, validation_labels):
         preds = np.argmax(logits[:, proj], axis=0).astype(np.int32)
-        Confs += [confusion_matrix(targets, preds, np.arange(num_classes))]
+        Confs += [confusion_matrix(targets, preds, labels=np.arange(num_classes))]
     # Regroup confusions
     C = np.sum(np.stack(Confs), axis=0)
 
@@ -198,7 +198,7 @@ def seg_metrics_vis_CM(num_classes, vote_logits,
     preds_list=[]
     for logits, proj, targets in zip(vote_logits, validation_proj, validation_labels): # vote_logits for sub-pc, validation_{proj,labels} for pc.
         preds = np.argmax(logits[:, proj], axis=0).astype(np.int32) # amazing, get preds based on sub-pc's preds(logits var) for all original pts, logits shape Cx#num_subpc_pts
-        Confs += [confusion_matrix(targets, preds, np.arange(num_classes))] # confusion_matrix is just a np array
+        Confs += [confusion_matrix(targets, preds, labels=np.arange(num_classes))] # confusion_matrix is just a np array
         targets_list.append(targets)
         preds_list.append(preds)
     # Regroup confusions
@@ -428,7 +428,7 @@ def sub_seg_metrics(num_classes, validation_logits, validation_labels, val_propo
     Confs = []
     for logits, targets in zip(validation_logits, validation_labels):
         preds = np.argmax(logits, axis=0).astype(np.int32)
-        Confs += [confusion_matrix(targets, preds, np.arange(num_classes))]
+        Confs += [confusion_matrix(targets, preds, labels=np.arange(num_classes))]
     # Regroup confusions
     C = np.sum(np.stack(Confs), axis=0).astype(np.float32)
     # Rescale with the right number of point per class
@@ -446,7 +446,7 @@ def seg_part_metrics(num_classes, predictions, targets, val_proportions):
         # Predicted labels
         preds = np.argmax(probs, axis=0)
         # Confusions
-        Confs[i, :, :] = confusion_matrix(truth, preds, np.arange(num_classes))
+        Confs[i, :, :] = confusion_matrix(truth, preds, labels=np.arange(num_classes))
     # Sum all confusions
     C = np.sum(Confs, axis=0).astype(np.float32)
     # Balance with real validation proportions
