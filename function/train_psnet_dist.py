@@ -49,8 +49,9 @@ def parse_option():
                         help='path to latest checkpoint (default: none)')
     parser.add_argument('--print_freq', type=int, default=10, help='print frequency')
     parser.add_argument('--save_freq', type=int, default=10, help='save frequency')
-    parser.add_argument('--val_freq', type=int, default=10, help='val frequency')
+    parser.add_argument('--val_freq', type=int, default=1, help='val frequency')
     parser.add_argument('--log_dir', type=str, default='log', help='log dir [default: log]')
+    parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for early stopping')
 
     # misc
     parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
@@ -69,6 +70,7 @@ def parse_option():
     config.val_freq = args.val_freq
     config.rng_seed = args.rng_seed
     config.local_rank = args.local_rank
+    config.early_stopping_patience = args.early_stopping_patience
 
     # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
     # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
@@ -183,7 +185,7 @@ def load_checkpoint(config, model, optimizer, scheduler):
     torch.cuda.empty_cache()
 
 
-def save_checkpoint(config, epoch, model, optimizer, scheduler):
+def save_checkpoint(config, epoch, model, optimizer, scheduler, is_best=False):
     logger.info('==> Saving...')
     state = {
         'config': config,
@@ -193,6 +195,9 @@ def save_checkpoint(config, epoch, model, optimizer, scheduler):
         'epoch': epoch,
     }
     torch.save(state, os.path.join(config.log_dir, 'current.pth'))
+    if is_best:
+        torch.save(state, os.path.join(config.log_dir, 'best.pth'))
+        logger.info("Saved best model in {}".format(os.path.join(config.log_dir, 'best.pth')))
     if epoch % config.save_freq == 0:
         torch.save(state, os.path.join(config.log_dir, f'ckpt_epoch_{epoch}.pth'))
         logger.info("Saved in {}".format(os.path.join(config.log_dir, f'ckpt_epoch_{epoch}.pth')))
@@ -247,6 +252,9 @@ def main(config):
         summary_writer = None
 
     # routine
+    best_miou = 0.0
+    patience_counter = 0
+
     for epoch in range(config.start_epoch, config.epochs + 1):
         train_loader.sampler.set_epoch(epoch)
         val_loader.sampler.set_epoch(epoch)
@@ -257,17 +265,33 @@ def main(config):
         logger.info('epoch {}, total time {:.2f}, lr {:.5f}'.format(epoch,
                                                                     (time.time() - tic),
                                                                     optimizer.param_groups[0]['lr']))
+        is_best = False
         if epoch % config.val_freq == 0:
-            validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes=2)
+            # The validate function is slow mainly due to num_votes.
+            # For a quicker check, you can reduce num_votes here.
+            # e.g., validate(..., num_votes=1)
+            miou = validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes=2)
+            if miou > best_miou:
+                best_miou = miou
+                is_best = True
+                patience_counter = 0
+                logger.info(f'New best mIoU: {best_miou:.3%}')
+            else:
+                patience_counter += 1
+                logger.info(f'mIoU did not improve. Current best: {best_miou:.3%}. Patience: {patience_counter}/{config.early_stopping_patience}')
 
         if dist.get_rank() == 0:
             # save model
-            save_checkpoint(config, epoch, model, optimizer, scheduler)
+            save_checkpoint(config, epoch, model, optimizer, scheduler, is_best)
 
         if summary_writer is not None:
             # tensorboard logger
             summary_writer.add_scalar('ins_loss', loss, epoch)
             summary_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], epoch)
+
+        if patience_counter >= config.early_stopping_patience:
+            logger.info(f"Early stopping triggered after {config.early_stopping_patience} epochs with no improvement.")
+            break
 
     validate('Last', val_loader, model, criterion, runing_vote_logits, config, num_votes=20)
 
