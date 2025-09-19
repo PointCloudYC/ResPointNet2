@@ -24,3 +24,4 @@ cd ../..
 mkdir -p data/PSNet
 ln -s /mnt/nas/point-cloud-datasets/PSNet5 PSNet5
 python datasets/PSNet5.py
+python datasets/PSNet12.py
