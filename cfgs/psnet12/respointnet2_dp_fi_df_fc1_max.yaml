@@ -1,4 +1,4 @@
-datasets: 'psnet5'
+datasets: 'psnet12'
 data_root: ''
 num_classes: 12
 input_features_dim: 4
