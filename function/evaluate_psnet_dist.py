@@ -226,7 +226,7 @@ def validate(epoch, test_loader, model, criterion, config, num_votes=10):
                 # collect
                 bsz = points.shape[0]
                 for ib in range(bsz):
-                    mask_i = mask[ib].cpu().numpy().astype(np.bool) # shape: (15000,) ,original pts 1, masking pts 0
+                    mask_i = mask[ib].cpu().numpy().astype(bool) # shape: (15000,) ,original pts 1, masking pts 0
                     logits = pred[ib].cpu().numpy()[:, mask_i] # shape: (C, #original pts), e.g. (5,2943)
                     inds = input_inds[ib].cpu().numpy()[mask_i] # shape: (#orginal pts,), e.g. (2943,)
                     c_i = cloud_label[ib].item() # denote which PC
