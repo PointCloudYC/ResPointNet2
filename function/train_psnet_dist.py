@@ -74,10 +74,15 @@ def parse_option():
 
     # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
     # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
-    model_name = args.cfg.split('.')[-2].split('/')[-1] 
-    current_time = datetime.now().strftime('%Y%m%d%H%M%S') #20210518221044 means 2021, 5.18, 22:10:44
-    # an example is log_dir=log/psnet5/respointnet2_time 
-    config.log_dir = os.path.join(args.log_dir, args.dataset_name, f'{model_name}_{int(current_time)}') 
+    if args.load_path:
+        # When resuming, use the log_dir from the command line directly.
+        # This prevents creating a new timestamped directory inside the old one.
+        config.log_dir = args.log_dir
+    else:
+        model_name = args.cfg.split('.')[-2].split('/')[-1] 
+        current_time = datetime.now().strftime('%Y%m%d%H%M%S') #20210518221044 means 2021, 5.18, 22:10:44
+        # an example is log_dir=log/psnet5/respointnet2_time 
+        config.log_dir = os.path.join(args.log_dir, args.dataset_name, f'{model_name}_{current_time}') 
 
     if args.batch_size:
         config.batch_size = args.batch_size
@@ -383,6 +388,9 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
                                                    std=config.noise_std, clip=config.noise_clip,
                                                    augment_symmetries=config.augment_symmetries)
         for v in range(num_votes):
+            # dealing w. distributed training to resolve the “NCCL operations have failed or timed out”
+            if dist.get_world_size() > 1:
+                dist.barrier()
             test_loader.dataset.epoch = (0 + v) if isinstance(epoch, str) else (epoch + v) % 20
             predictions = []
             targets = []
@@ -456,6 +464,10 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
             IoUs, mIoU = seg_metrics(config.num_classes, vote_logits, validation_proj, validation_labels)
             logger.info(f'E{epoch} V{v} * mIoU {mIoU:.3%}')
             logger.info(f'E{epoch} V{v}  * msIoU {IoUs}')
+
+        # dealing w. distributed training to resolve the “NCCL operations have failed or timed out”
+        if dist.get_world_size() > 1:
+            dist.barrier()
 
     return mIoU
 
