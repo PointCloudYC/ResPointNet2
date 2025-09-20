@@ -262,7 +262,7 @@ def validate(epoch, test_loader, model, criterion, config, num_votes=10):
                                                 validation_proj, validation_labels,
                                                 more_metrics=True,image_path=IMAGES_PATH, 
                                                 label_to_names=test_loader.dataset.label_to_names,
-                                                visualize_CM=False)
+                                                visualize_CM=True)
 
                 # save gt and pred results to ply file and show orig/gt/pred results using open3d
                 # TODO: uncomment temporarily for evaluting fastly
