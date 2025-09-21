@@ -191,6 +191,9 @@ def validate(epoch, test_loader, model, criterion, config, num_votes=10):
                                                    augment_symmetries=config.augment_symmetries)
 
         for v in range(num_votes):
+            # Synchronize all processes before each voting round to prevent NCCL timeout
+            if dist.get_world_size() > 1:
+                dist.barrier()
             test_loader.dataset.epoch = v
             points_list=[]
             for idx, (points, mask, features, points_labels, cloud_label, input_inds) in enumerate(test_loader):
@@ -260,18 +263,19 @@ def validate(epoch, test_loader, model, criterion, config, num_votes=10):
                 IoUs, mIoU, overall_acc = seg_metrics_vis_CM(
                                                 config.num_classes, vote_logits, 
                                                 validation_proj, validation_labels,
-                                                more_metrics=True,image_path=IMAGES_PATH, 
+                                                more_metrics=True,
+                                                image_path=IMAGES_PATH, 
                                                 label_to_names=test_loader.dataset.label_to_names,
                                                 visualize_CM=True)
 
                 # save gt and pred results to ply file and show orig/gt/pred results using open3d
                 # TODO: uncomment temporarily for evaluting fastly
-                # save_predicted_results_PLY(vote_logits, 
-                #                            validation_proj,validation_points,
-                #                            validation_colors,validation_labels, 
-                #                            test_path=config.log_dir, 
-                #                            cloud_names=test_loader.dataset.cloud_names,
-                #                            open3d_visualize=True)
+                save_predicted_results_PLY(vote_logits, 
+                                           validation_proj,validation_points,
+                                           validation_colors,validation_labels, 
+                                           test_path=config.log_dir, 
+                                           cloud_names=test_loader.dataset.cloud_names,
+                                           open3d_visualize=True)
             else:
                 IoUs, mIoU = seg_metrics(config.num_classes, vote_logits, validation_proj, validation_labels)
 
@@ -279,6 +283,10 @@ def validate(epoch, test_loader, model, criterion, config, num_votes=10):
             logger.info(f'E{epoch} V{v}  * msIoU {IoUs}')
             if overall_acc:
                 logger.info(f'E{epoch} V{v}  * OA {overall_acc:.4%}')
+
+        # Synchronize all processes after all voting rounds complete
+        if dist.get_world_size() > 1:
+            dist.barrier()
 
     return mIoU
 
