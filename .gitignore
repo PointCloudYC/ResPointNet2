@@ -143,3 +143,6 @@ log_eval/*
 # predicted data
 gt.txt
 preds.txt
+
+# cursor rules
+.cursor/**

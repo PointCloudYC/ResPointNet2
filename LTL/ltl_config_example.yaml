@@ -1,0 +1,28 @@
+# Example configuration for LTL techniques
+# Add these parameters to your existing config files
+
+# LTL Method Selection
+ltl_method: "two_stage"  # Options: baseline, cb_loss, cb_sampling, two_stage, combined
+
+# Class-Balanced Loss Parameters
+use_cb_loss: true
+cb_beta: 0.9999      # Effective number hyperparameter (0.9999 for long-tailed)
+cb_gamma: 2.0        # Focal loss focusing parameter
+cb_alpha: 1.0        # Loss weighting factor
+
+# Class-Balanced Sampling Parameters  
+use_balanced_sampling: false
+sampler_type: "point"  # Options: point, batch
+
+# Two-Stage Training Parameters
+use_two_stage: true
+stage1_epochs: 200     # Same as original training epochs
+stage2_epochs: 50      # Typically 1/4 of stage1_epochs
+stage2_lr: 0.001       # Lower learning rate for stage2
+use_cb_loss_stage1: false    # Use CB loss in stage1
+use_cb_loss_stage2: true     # Use CB loss in stage2
+freeze_encoder: true         # Freeze backbone in stage2
+
+# Evaluation Parameters
+eval_tail_classes: true      # Evaluate tail class performance separately
+tail_class_threshold: 0.1    # Classes with <10% of max frequency are "tail"
