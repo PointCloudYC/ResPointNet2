@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 
 import datasets.data_utils as d_utils
-from models import build_scene_segmentation
+from models import build_scene_segmentation, build_scene_segmentation_with_cb_loss
 from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_metrics_vis_CM, save_predicted_results_PLY
 from utils.logger import setup_logger
@@ -43,6 +43,9 @@ def parse_option():
     parser.add_argument('--num_steps', type=int, help='num_steps')
     parser.add_argument("--local_rank", type=int, default=0,help='local rank for DistributedDataParallel')
     parser.add_argument("--rng_seed", type=int, default=0, help='manual seed')
+    
+    # CB loss parameters for evaluation
+    parser.add_argument('--use_cb_loss', action='store_true', help='use class-balanced loss for evaluation')
 
     args, unparsed = parser.parse_known_args()
 
@@ -55,6 +58,7 @@ def parse_option():
 
     config.local_rank = args.local_rank
     config.dataset_name = args.dataset_name
+    config.use_cb_loss = args.use_cb_loss
 
     # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
     # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
@@ -132,7 +136,14 @@ def main(config):
     n_data = len(val_loader.dataset)
     logger.info(f"length of validation dataset: {n_data}")
 
-    model, criterion = build_scene_segmentation(config)
+    # Build model and loss function
+    if config.use_cb_loss:
+        logger.info("Using Class-Balanced Loss for evaluation")
+        model, criterion = build_scene_segmentation_with_cb_loss(config, val_loader.dataset)
+    else:
+        logger.info("Using standard MaskedCrossEntropy Loss for evaluation")
+        model, criterion = build_scene_segmentation(config)
+        
     model.cuda()
     criterion.cuda()
 

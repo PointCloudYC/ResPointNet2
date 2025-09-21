@@ -10,9 +10,9 @@ try:
 except:
     from heads import ClassifierResNet, SceneSegHeadResNet, SqnHeadResNet
 try:
-    from .losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy
+    from .losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, create_cb_loss
 except:
-    from losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy
+    from losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, create_cb_loss
 
 
 def build_scene_segmentation(config):
@@ -30,6 +30,31 @@ def build_scene_segmentation(config):
                                    config.radius, config.sampleDl, config.nsamples, config.npoints,
                                    config.width, config.depth, config.bottleneck_ratio)
     criterion = MaskedCrossEntropy()
+    return model, criterion
+
+
+def build_scene_segmentation_with_cb_loss(config, dataset):
+    """create a semantic segmentation model and CB loss
+
+    Args:
+        config (dict): the config object
+        dataset: training dataset for calculating class statistics
+
+    Returns:
+        tuple: the model and CB loss
+    """
+
+    model = SceneSegmentationModel(config, config.backbone, config.head, config.num_classes,
+                                   config.input_features_dim,
+                                   config.radius, config.sampleDl, config.nsamples, config.npoints,
+                                   config.width, config.depth, config.bottleneck_ratio)
+    
+    # Create CB loss with config parameters or defaults
+    beta = getattr(config, 'cb_beta', 0.9999)
+    gamma = getattr(config, 'cb_gamma', 2.0) 
+    alpha = getattr(config, 'cb_alpha', 1.0)
+    
+    criterion = create_cb_loss(dataset, config.num_classes, beta, gamma, alpha)
     return model, criterion
 
 def build_scene_segmentation_sqn(config,weak_supervision_ratio=0.1):

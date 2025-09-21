@@ -1,3 +1,4 @@
 from .label_smoothing_cross_entropy import LabelSmoothingCrossEntropyLoss
 from .multi_shape_cross_entropy import MultiShapeCrossEntropy
 from .masked_cross_entropy import MaskedCrossEntropy
+from .cb_loss import ClassBalancedLoss, create_cb_loss

@@ -1,1 +1,1 @@
-from .build import build_scene_segmentation, build_scene_segmentation_sqn
+from .build import build_scene_segmentation, build_scene_segmentation_sqn, build_scene_segmentation_with_cb_loss

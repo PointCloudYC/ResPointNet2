@@ -22,7 +22,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 
 import datasets.data_utils as d_utils
-from models import build_scene_segmentation # models/build.py
+from models import build_scene_segmentation, build_scene_segmentation_with_cb_loss # models/build.py
 from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_part_metrics
 from utils.lr_scheduler import get_scheduler
@@ -53,6 +53,12 @@ def parse_option():
     parser.add_argument('--log_dir', type=str, default='log', help='log dir [default: log]')
     parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for early stopping')
 
+    # CB loss parameters
+    parser.add_argument('--use_cb_loss', action='store_true', help='use class-balanced loss')
+    parser.add_argument('--cb_beta', type=float, default=0.9999, help='CB loss beta parameter')
+    parser.add_argument('--cb_gamma', type=float, default=2.0, help='CB loss gamma (focal) parameter')
+    parser.add_argument('--cb_alpha', type=float, default=1.0, help='CB loss alpha (weighting) parameter')
+
     # misc
     parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
     parser.add_argument("--rng_seed", type=int, default=0, help='manual seed')
@@ -71,6 +77,12 @@ def parse_option():
     config.rng_seed = args.rng_seed
     config.local_rank = args.local_rank
     config.early_stopping_patience = args.early_stopping_patience
+    
+    # CB loss parameters
+    config.use_cb_loss = args.use_cb_loss
+    config.cb_beta = args.cb_beta
+    config.cb_gamma = args.cb_gamma
+    config.cb_alpha = args.cb_alpha
 
     # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
     # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
@@ -215,7 +227,14 @@ def main(config):
     n_data = len(val_loader.dataset)
     logger.info(f"length of validation dataset: {n_data}")
 
-    model, criterion = build_scene_segmentation(config)
+    # Build model and loss function
+    if config.use_cb_loss:
+        logger.info("Using Class-Balanced Loss")
+        model, criterion = build_scene_segmentation_with_cb_loss(config, train_loader.dataset)
+    else:
+        logger.info("Using standard MaskedCrossEntropy Loss")
+        model, criterion = build_scene_segmentation(config)
+    
     model.cuda()
     criterion.cuda()
 
