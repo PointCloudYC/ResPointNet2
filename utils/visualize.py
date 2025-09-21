@@ -1,4 +1,7 @@
-from open3d import linux as open3d
+try:
+    from open3d import linux as open3d
+except ImportError:
+    import open3d
 from os.path import join
 import numpy as np
 import colorsys, random, os, sys
