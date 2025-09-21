@@ -27,8 +27,8 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 
-from .cb_loss import create_cb_loss
-from .cb_sampler import create_balanced_dataloader
+from models.losses.cb_loss import create_cb_loss
+from LTL.cb_sampler import create_balanced_dataloader
 
 
 class TwoStageTrainer:
@@ -207,13 +207,17 @@ class TwoStageTrainer:
             self.logger.info("Using standard MaskedCrossEntropy for Stage 2")
         
         # Create class-balanced dataloader for Stage 2
-        balanced_train_loader = create_balanced_dataloader(
-            self.train_loader.dataset,
-            self.config.batch_size,
-            num_workers=self.config.num_workers,
-            sampler_type='point'
-        )
-        self.logger.info("Created class-balanced dataloader for Stage 2")
+        # balanced_train_loader = create_balanced_dataloader(
+        #     self.train_loader.dataset,
+        #     self.config.batch_size,
+        #     num_workers=self.config.num_workers,
+        #     sampler_type='point'
+        # )
+        # self.logger.info("Created class-balanced dataloader for Stage 2")
+        # For now, use the same dataloader as Stage 1 - class-balanced sampling can be added later
+
+        balanced_train_loader = self.train_loader
+        self.logger.info("Using standard dataloader for Stage 2 (class-balanced sampling can be added later)")
         
         # Setup new optimizer for Stage 2 with lower learning rate
         stage2_optimizer = self._create_stage2_optimizer()
