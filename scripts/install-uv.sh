@@ -10,6 +10,8 @@ uv pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 
 # uv pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
 # uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 uv pip install scikit-learn IPython scikit-image matplotlib pillow tqdm opencv-python setuptools ipykernel
+# install open3d and plyfile for visualization
+uv pip install open3d plyfile
 uv pip install termcolor tensorboard h5py easydict
 
 # install custom operators
