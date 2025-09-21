@@ -174,41 +174,28 @@ def seg_metrics(num_classes, vote_logits, validation_proj, validation_labels):
     return IoUs, mIoU
 
 
-def seg_metrics_vis_CM(
-    num_classes,
-    vote_logits,
-    validation_proj,
-    validation_labels,
-    remap_lut,
-    logger,
-    val_proportions=None,
-    smooth_value=1e-6,
-):
-    """Calculate segmentation metrics."""
-    preds_list = []
-    labels_list = []
-    for i in range(len(vote_logits)):
-        # Get original predictions
-        points_labels = validation_labels[i]
-        points_preds = np.argmax(vote_logits[i], axis=0)
-        # Project predictions on original point cloud
-        proj_preds = points_preds[validation_proj[i]]
-        proj_labels = points_labels
-        # Remap labels to initial classes
-        proj_preds = remap_lut[proj_preds]
-        proj_labels = remap_lut[proj_labels]
-
-        preds_list.append(proj_preds.flatten())
-        labels_list.append(proj_labels.flatten())
-
-    y_pred = np.hstack(preds_list)
-    y_true = np.hstack(labels_list)
-    
-    # Overall accuracy
-    overall_acc = metrics.accuracy_score(y_true, y_pred)
+def seg_metrics_vis_CM(num_classes, vote_logits, 
+                         validation_proj, validation_labels, 
+                         more_metrics=False, image_path=None,
+                         label_to_names=None,visualize_CM=True):
+    """compute metrics (miou, OA, precision, recall), visualize confusion matrix
+    Args:
+        num_classes ([type]): the number of class
+        vote_logits ([type]): vote_logits for all sub points
+        validation_proj ([type]): validation projection, i.e. the nearest nb sub-pt indice for each original pt
+        validation_labels ([type]): validation labels for each original pt
+        more_metrics (bool, optional): compute other metrics (precision, recall, OA,etc). Defaults to False.
+        image_path ([type], optional): place to save CM picture. Defaults to None.
+        label_to_names ([type], optional): label and name dictionary for the dataset. Defaults to None.
+        visualize_CM (bool, optional): show the CM. Defaults to True.
+    Returns:
+        [type]: [description]
+    """
 
     # compute mIoU
     Confs = []
+    targets_list=[]
+    preds_list=[]
     for logits, proj, targets in zip(vote_logits, validation_proj, validation_labels): # vote_logits for sub-pc, validation_{proj,labels} for pc.
         preds = np.argmax(logits[:, proj], axis=0).astype(np.int32) # amazing, get preds based on sub-pc's preds(logits var) for all original pts, logits shape Cx#num_subpc_pts
         Confs += [confusion_matrix(targets, preds, labels=np.arange(num_classes))] # confusion_matrix is just a np array
@@ -221,8 +208,11 @@ def seg_metrics_vis_CM(
         
     # compute other metrics
     if more_metrics:
-        y_true=np.vstack(targets_list).squeeze()
-        y_pred=np.vstack(preds_list).squeeze() 
+        # Handle distributed evaluation: concatenate arrays properly
+        # Different point clouds may have different numbers of points
+        y_true = np.concatenate(targets_list, axis=0)
+        y_pred = np.concatenate(preds_list, axis=0)
+        
         target_names = list(label_to_names.values())
         cls_report = classification_report(
                 y_true,
