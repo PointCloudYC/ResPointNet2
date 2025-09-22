@@ -313,11 +313,29 @@ def main(config):
             summary_writer.add_scalar('ins_loss', loss, epoch)
             summary_writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], epoch)
 
-        if patience_counter >= config.early_stopping_patience:
+        # Check for early stopping with distributed synchronization
+        early_stop = torch.tensor([1.0 if patience_counter >= config.early_stopping_patience else 0.0], 
+                                 device=torch.cuda.current_device())
+        if dist.get_world_size() > 1:
+            dist.all_reduce(early_stop, op=dist.ReduceOp.MAX)
+        
+        if early_stop.item() > 0:
             logger.info(f"Early stopping triggered after {config.early_stopping_patience} epochs with no improvement.")
+            # Ensure all processes are synchronized before breaking
+            if dist.get_world_size() > 1:
+                dist.barrier()
             break
 
-    validate('Last', val_loader, model, criterion, runing_vote_logits, config, num_votes=20)
+    # Final validation with proper synchronization
+    if dist.get_world_size() > 1:
+        dist.barrier()
+    
+    try:
+        validate('Last', val_loader, model, criterion, runing_vote_logits, config, num_votes=20)
+    except Exception as e:
+        logger.error(f"Final validation failed: {e}")
+        if dist.get_world_size() > 1:
+            dist.barrier()  # Ensure all processes are still synchronized
 
 
 def train(epoch, train_loader, model, criterion, optimizer, scheduler, config):
@@ -397,6 +415,7 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
 
     batch_time = AverageMeter()
     losses = AverageMeter()
+    mIoU = 0.0  # Initialize mIoU in case of early return
 
     model.eval()
     with torch.no_grad():
@@ -407,9 +426,16 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
                                                    std=config.noise_std, clip=config.noise_clip,
                                                    augment_symmetries=config.augment_symmetries)
         for v in range(num_votes):
-            # dealing w. distributed training to resolve the “NCCL operations have failed or timed out”
+            # dealing w. distributed training to resolve the "NCCL operations have failed or timed out"
             if dist.get_world_size() > 1:
-                dist.barrier()
+                try:
+                    dist.barrier(timeout=torch.distributed.default_pg_timeout)
+                except Exception as e:
+                    logger.error(f"Distributed barrier failed at vote {v}: {e}")
+                    if v == 0:  # If first vote fails, abort validation
+                        return 0.0
+                    else:  # If later votes fail, return current mIoU
+                        return mIoU
             test_loader.dataset.epoch = (0 + v) if isinstance(epoch, str) else (epoch + v) % 20
             predictions = []
             targets = []
@@ -484,9 +510,14 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
             logger.info(f'E{epoch} V{v} * mIoU {mIoU:.3%}')
             logger.info(f'E{epoch} V{v}  * msIoU {IoUs}')
 
-        # dealing w. distributed training to resolve the “NCCL operations have failed or timed out”
+        # dealing w. distributed training to resolve the "NCCL operations have failed or timed out"
         if dist.get_world_size() > 1:
-            dist.barrier()
+            try:
+                dist.barrier(timeout=torch.distributed.default_pg_timeout)
+            except Exception as e:
+                logger.error(f"Final distributed barrier failed in validation: {e}")
+                # Return the mIoU we have so far instead of crashing
+                pass
 
     return mIoU
 
@@ -513,4 +544,27 @@ if __name__ == "__main__":
             json.dump(vars(config), f, indent=2)
             os.system('cp %s %s' % (opt.cfg, config.log_dir))
         logger.info("Full config saved to {}".format(path))
-    main(config)
+    
+    try:
+        main(config)
+    except RuntimeError as e:
+        if "NCCL" in str(e) or "collective operation timeout" in str(e):
+            logger.error(f"NCCL timeout error occurred: {e}")
+            logger.info("Attempting graceful shutdown...")
+            # Try to cleanup distributed processes
+            try:
+                if dist.is_initialized():
+                    dist.destroy_process_group()
+            except:
+                pass
+            sys.exit(1)
+        else:
+            raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        try:
+            if dist.is_initialized():
+                dist.destroy_process_group()
+        except:
+            pass
+        raise
