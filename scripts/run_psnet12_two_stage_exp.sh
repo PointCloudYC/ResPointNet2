@@ -9,6 +9,7 @@ dataset_name='psnet12'
 log_root="log/${dataset_name}"
 master_port_train=12347
 master_port_eval=12348
+patience=${1:-20} # Use the first argument for early stopping patience, default to 20
 
 # Two-stage specific parameters
 stage1_epochs=80
@@ -24,6 +25,7 @@ echo "Starting Two-Stage training for ${dataset_name} with config ${config_name}
 echo "Stage 1 Epochs: ${stage1_epochs}, Stage 2 Epochs: ${stage2_epochs}"
 echo "Stage 1 CB Loss: ${use_cb_loss_stage1}, Stage 2 CB Loss: ${use_cb_loss_stage2}"
 echo "Freeze Encoder: ${freeze_encoder}"
+echo "Using patience: ${patience}"
 echo "================================================="
 
 time python -m torch.distributed.launch --master_port ${master_port_train} \
@@ -36,7 +38,8 @@ time python -m torch.distributed.launch --master_port ${master_port_train} \
     --stage2_lr ${stage2_lr} \
     $([ "$use_cb_loss_stage1" = true ] && echo "--use_cb_loss_stage1") \
     $([ "$use_cb_loss_stage2" = true ] && echo "--use_cb_loss_stage2") \
-    $([ "$freeze_encoder" = true ] && echo "--freeze_encoder")
+    $([ "$freeze_encoder" = true ] && echo "--freeze_encoder") \
+    --early_stopping_patience ${patience}
 
 echo "Two-Stage training finished successfully."
 

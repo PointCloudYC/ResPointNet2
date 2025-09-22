@@ -9,18 +9,21 @@ dataset_name='psnet12'
 log_root="log/${dataset_name}"
 master_port_train=12349  # Different port to avoid conflicts
 master_port_eval=12350
+patience=${1:-20} # Use the first argument for early stopping patience, default to 20
 
 # --- 1. Training ---
 echo "================================================="
 echo "Starting Strong CB Loss training for ${dataset_name} with config ${config_name}..."
 echo "CB Loss Parameters: beta=0.99999, gamma=3.0, alpha=2.0"
+echo "Using patience: ${patience}"
 echo "================================================="
 time python -m torch.distributed.launch --master_port ${master_port_train} \
     --nproc_per_node ${num_gpus} \
     function/train_psnet_dist.py \
     --dataset_name ${dataset_name} \
     --cfg cfgs/${dataset_name}/${config_name}.yaml \
-    --use_cb_loss
+    --use_cb_loss \
+    --early_stopping_patience ${patience}
 
 echo "Strong CB Loss training finished successfully."
 

@@ -9,16 +9,19 @@ dataset_name='psnet12'
 log_root="log/${dataset_name}"
 master_port_train=12346
 master_port_eval=12345
+patience=${1:-20} # Use the first argument for early stopping patience, default to 20
 
 # --- 1. Training ---
 echo "================================================="
 echo "Starting training for ${dataset_name} with config ${config_name}..."
+echo "Using patience: ${patience}"
 echo "================================================="
 time python -m torch.distributed.launch --master_port ${master_port_train} \
     --nproc_per_node ${num_gpus} \
     function/train_psnet_dist.py \
     --dataset_name ${dataset_name} \
-    --cfg cfgs/${dataset_name}/${config_name}.yaml
+    --cfg cfgs/${dataset_name}/${config_name}.yaml \
+    --early_stopping_patience ${patience}
 
 echo "Training finished successfully."
 
