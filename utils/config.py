@@ -25,6 +25,16 @@ config.cb_beta = 0.9999
 config.cb_gamma = 2.0
 config.cb_alpha = 1.0
 # ---------------------------------------------------------------------------- #
+# Two-stage training
+# ---------------------------------------------------------------------------- #
+config.use_two_stage = False
+config.stage1_epochs = 200
+config.stage2_epochs = 50
+config.stage2_lr = 0.001
+config.use_cb_loss_stage1 = False
+config.use_cb_loss_stage2 = True
+config.freeze_encoder = True
+# ---------------------------------------------------------------------------- #
 # Model
 # ---------------------------------------------------------------------------- #
 config.backbone = 'resnet'

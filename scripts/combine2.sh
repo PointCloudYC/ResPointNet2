@@ -18,15 +18,26 @@ check_gpu_memory() {
 if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
     echo "GPU with sufficient memory found. Starting experiments..."
 else
-    echo "No GPU with 19GB+ memory available. Will retry in 2 hours."
-    sleep 14400  # Wait for 2 hours (7200 seconds)
+    echo "No GPU with 19GB+ memory available. Will retry in 4 hours."
+    sleep 14400  # Wait for 4 hours 
     
     # Check again after waiting
     if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
         echo "GPU with sufficient memory now available. Starting experiments..."
     else
-        echo "Still no GPU with sufficient memory. Exiting."
-        exit 1
+        echo "Still no GPU with sufficient memory. Will retry in 4 hours."
+        sleep 14400  # Wait for 4 hours
+        if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+            echo "GPU with sufficient memory now available. Starting experiments..."
+        else
+            sleep 14400  # Wait for 4 hours
+            if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+                echo "GPU with sufficient memory now available. Starting experiments..."
+            else
+                echo "Still no GPU with sufficient memory. Exiting."
+                exit 1
+            fi
+        fi
     fi
 fi
 

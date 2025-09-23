@@ -79,7 +79,7 @@ stage2_lr: 0.001       # Lower learning rate for stage2
 use_cb_loss_stage1: false    # Use CB loss in stage1
 use_cb_loss_stage2: true     # Use CB loss in stage2
 freeze_encoder: true         # Freeze backbone in stage2
-    
+
 
 # ---------------------------------------------------------------------------- #
 # io and misc

@@ -245,5 +245,3 @@ def create_balanced_dataloader(dataset, batch_size, num_workers=4, sampler_type=
         )
     else:
         raise ValueError(f"Unknown sampler_type: {sampler_type}")
-```
-

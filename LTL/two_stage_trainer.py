@@ -441,5 +441,3 @@ def create_two_stage_trainer(config, model, criterion, optimizer, scheduler,
     """
     return TwoStageTrainer(config, model, criterion, optimizer, scheduler,
                          train_loader, val_loader, logger)
-```
-
