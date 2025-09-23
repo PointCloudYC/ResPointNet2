@@ -1,11 +1,22 @@
-try:
-    from open3d import linux as open3d
-except ImportError:
-    import open3d
 from os.path import join
 import numpy as np
 import colorsys, random, os, sys
 import pandas as pd
+
+try:
+    from open3d import linux as open3d
+    # For old Open3D versions
+    PointCloud = open3d.PointCloud
+    Vector3dVector = open3d.Vector3dVector
+    Vector3iVector = open3d.Vector3iVector
+    draw_geometries = open3d.draw_geometries
+except ImportError:
+    import open3d
+    # For new Open3D versions
+    PointCloud = open3d.geometry.PointCloud
+    Vector3dVector = open3d.utility.Vector3dVector
+    Vector3iVector = open3d.utility.Vector3iVector
+    draw_geometries = open3d.visualization.draw_geometries
 
 class Plot:
     @staticmethod
@@ -19,16 +30,16 @@ class Plot:
 
     @staticmethod
     def draw_pc(pc_xyzrgb):
-        pc = open3d.PointCloud()
-        pc.points = open3d.Vector3dVector(pc_xyzrgb[:, 0:3])
+        pc = PointCloud()
+        pc.points = Vector3dVector(pc_xyzrgb[:, 0:3])
         if pc_xyzrgb.shape[1] == 3:
-            open3d.draw_geometries([pc])
+            draw_geometries([pc])
             return 0
         if np.max(pc_xyzrgb[:, 3:6]) > 20:  ## 0-255
-            pc.colors = open3d.Vector3dVector(pc_xyzrgb[:, 3:6] / 255.)
+            pc.colors = Vector3dVector(pc_xyzrgb[:, 3:6] / 255.)
         else:
-            pc.colors = open3d.Vector3dVector(pc_xyzrgb[:, 3:6])
-        open3d.draw_geometries([pc])
+            pc.colors = Vector3dVector(pc_xyzrgb[:, 3:6])
+        draw_geometries([pc])
         return 0
 
     @staticmethod
