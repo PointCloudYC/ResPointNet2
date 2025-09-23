@@ -7,9 +7,13 @@
 - 250916, identify tail class problem, LTL techniques implementation and training, 2P
 - 250917, critically review and update the action plan with Phase 0 validation and stronger narrative structure, 3h
 - 250918, conduct experiments 1 and 2 and complete over 95%, 9P
-
+- 250919, fix bugs, 2P
 - 250920, fix minor bugs, 2P
 - 250921, add PSNet12 new experiment results and fix bugs, 2P
+- 250921, update the paper novelties and rethinking, 5P
+- 250921, conduct experiments 3 (implement the CB loss and training), 2P
+- 250922, PSNet12 paper write (which is relevant to the paper), 10P
+- 250922, debug the code, 3P
 
 # ResPointNet-LT Action Plan (Version 3)
 
