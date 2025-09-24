@@ -102,7 +102,17 @@ def parse_option():
     config.cb_gamma = args.cb_gamma
     config.cb_alpha = args.cb_alpha
 
-    if args.load_path:
+    # Handle log directory - if specific path provided, use it directly
+    if hasattr(args, 'log_dir') and args.log_dir and args.log_dir != 'log':
+        # If it's an absolute path or contains the experiment name, use it directly
+        if os.path.isabs(args.log_dir) or 'two_stage' in args.log_dir:
+            config.log_dir = args.log_dir
+        else:
+            # Otherwise treat as base directory and create timestamped subdirectory
+            model_name = args.cfg.split('.')[-2].split('/')[-1] 
+            current_time = datetime.now().strftime('%Y%m%d%H%M%S')
+            config.log_dir = os.path.join(args.log_dir, args.dataset_name, f'{model_name}_two_stage_{current_time}')
+    elif args.load_path:
         config.log_dir = args.log_dir
     else:
         model_name = args.cfg.split('.')[-2].split('/')[-1] 
@@ -381,8 +391,11 @@ def main(config):
 
     # Stage 1: Representation Learning
     logger.info("Starting Two-Stage Training")
-    trainer.train_stage1(lambda epoch, val_loader, model, criterion, num_votes: 
-                        validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes))
+    if not trainer.stage1_completed:
+        trainer.train_stage1(lambda epoch, val_loader, model, criterion, num_votes: 
+                            validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes))
+    else:
+        logger.info("Stage 1 already completed, skipping to Stage 2")
 
     # Stage 2: Classifier Re-training
     trainer.train_stage2(lambda epoch, val_loader, model, criterion, num_votes:
@@ -403,10 +416,23 @@ if __name__ == "__main__":
     # add for debugging
     torch.autograd.set_detect_anomaly(True)
 
-    os.makedirs(opt.log_dir, exist_ok=True)
+    os.makedirs(config.log_dir, exist_ok=True)
     os.environ["JOB_LOG_DIR"] = config.log_dir
 
-    logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name=f'{config.dataset_name}_two_stage')
+    # Check if we're resuming (Stage 1 checkpoint exists)
+    stage1_checkpoint = os.path.join(config.log_dir, 'stage1', 'stage1_best.pth')
+    is_resuming = os.path.exists(stage1_checkpoint)
+    
+    if is_resuming:
+        logger = setup_logger(output=os.path.join(config.log_dir, "log_resume.txt"), 
+                            distributed_rank=dist.get_rank(), name=f'{config.dataset_name}_two_stage')
+        if dist.get_rank() == 0:
+            logger.info("=" * 60)
+            logger.info("RESUMING TWO-STAGE TRAINING")
+            logger.info(f"Found Stage 1 checkpoint: {stage1_checkpoint}")
+            logger.info("=" * 60)
+    else:
+        logger = setup_logger(output=config.log_dir, distributed_rank=dist.get_rank(), name=f'{config.dataset_name}_two_stage')
     if dist.get_rank() == 0:
         path = os.path.join(config.log_dir, "config.json")
         with open(path, 'w') as f:

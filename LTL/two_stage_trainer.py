@@ -80,6 +80,12 @@ class TwoStageTrainer:
         self.stage2_dir = os.path.join(config.log_dir, 'stage2')
         os.makedirs(self.stage1_dir, exist_ok=True)
         os.makedirs(self.stage2_dir, exist_ok=True)
+        
+        # Check if Stage 1 was already completed (for resuming)
+        stage1_best_path = os.path.join(self.stage1_dir, 'stage1_best.pth')
+        if os.path.exists(stage1_best_path):
+            self.stage1_completed = True
+            self.logger.info(f"Stage 1 checkpoint found at {stage1_best_path}, will skip Stage 1")
     
     def train_stage1(self, validate_func):
         """
@@ -412,11 +418,20 @@ class TwoStageTrainer:
         """Load model checkpoint."""
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
-        if hasattr(self.model, 'module'):
-            self.model.module.load_state_dict(checkpoint['model'])
-        else:
-            self.model.load_state_dict(checkpoint['model'])
+        # Handle both distributed data parallel (DDP) and non-distributed (non-DDP) model state dicts
+        model_state_dict = checkpoint['model']
         
+        # If current model is DDP but checkpoint doesn't have 'module.' prefix
+        if hasattr(self.model, 'module') and not any(key.startswith('module.') for key in model_state_dict.keys()):
+            # Add 'module.' prefix to checkpoint keys
+            model_state_dict = {f'module.{k}': v for k, v in model_state_dict.items()}
+        
+        # If current model is not DDP but checkpoint has 'module.' prefix
+        elif not hasattr(self.model, 'module') and any(key.startswith('module.') for key in model_state_dict.keys()):
+            # Remove 'module.' prefix from checkpoint keys
+            model_state_dict = {k.replace('module.', ''): v for k, v in model_state_dict.items()}
+        
+        self.model.load_state_dict(model_state_dict)
         self.logger.info(f"Model loaded from {checkpoint_path}")
 
 

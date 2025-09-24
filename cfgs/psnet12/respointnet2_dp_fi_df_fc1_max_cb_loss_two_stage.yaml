@@ -62,24 +62,24 @@ weight_decay: 0.001
 momentum: 0.98
 
 # ---------------------------------------------------------------------------- #
-# Class-Balanced Loss options (NEW)
-# ---------------------------------------------------------------------------- #
-use_cb_loss: true
-cb_beta: 0.9999      # Effective number hyperparameter (higher for more long-tailed)
-cb_gamma: 2.0        # Focal loss focusing parameter
-cb_alpha: 1.0        # Loss weighting factor
-
-# ---------------------------------------------------------------------------- #
 # Two-Stage Training options (NEW)
 # ---------------------------------------------------------------------------- #
-use_two_stage: true
-stage1_epochs: 200     # Same as original training epochs
-stage2_epochs: 50      # Typically 1/4 of stage1_epochs
-stage2_lr: 0.001       # Lower learning rate for stage2
-use_cb_loss_stage1: false    # Use CB loss in stage1
-use_cb_loss_stage2: true     # Use CB loss in stage2
-freeze_encoder: true         # Freeze backbone in stage2
+stage1_epochs: 80        # Stage 1: Representation learning epochs
+stage2_epochs: 20        # Stage 2: Classifier re-training epochs  
+stage2_lr: 0.0001        # Stage 2: Lower learning rate, or 0.001
+use_cb_loss_stage1: false # Use CB loss in Stage 1 (usually false)
+use_cb_loss_stage2: true  # Use CB loss in Stage 2 (usually true)
+freeze_encoder: true      # Freeze backbone in Stage 2 (usually true)
 
+# ---------------------------------------------------------------------------- #
+# Class-Balanced Loss options
+# ---------------------------------------------------------------------------- #
+use_cb_loss: false       # For compatibility, use stage-specific flags above
+cb_beta: 0.9999          # Effective number hyperparameter (higher for more long-tailed)
+cb_gamma: 2.0            # Focal loss focusing parameter
+# cb_gamma: 3.0        # Higher gamma for more focus on hard examples  
+cb_alpha: 1.0            # Loss weighting factor
+# cb_alpha: 2.0        # Higher alpha for stronger loss weighting
 
 # ---------------------------------------------------------------------------- #
 # io and misc
@@ -98,6 +98,6 @@ rng_seed: 0
 # ---------------------------------------------------------------------------- #
 local_aggregation_type: 'respointnet2'
 respointnet2:
-  feature_type: 'dp_fi_df' # dp or dp_fi or dp_fi_df
+  feature_type: 'dp_fi_df' # dp or dp_fi_df or dp_fi_df
   num_mlps: 1
   reduction: 'max' # max or avg
