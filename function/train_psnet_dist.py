@@ -429,7 +429,8 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
             # dealing w. distributed training to resolve the "NCCL operations have failed or timed out"
             if dist.get_world_size() > 1:
                 try:
-                    dist.barrier(timeout=torch.distributed.default_pg_timeout)
+                    # Use barrier without timeout for compatibility with older PyTorch versions
+                    dist.barrier()
                 except Exception as e:
                     logger.error(f"Distributed barrier failed at vote {v}: {e}")
                     if v == 0:  # If first vote fails, abort validation
@@ -513,7 +514,8 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
         # dealing w. distributed training to resolve the "NCCL operations have failed or timed out"
         if dist.get_world_size() > 1:
             try:
-                dist.barrier(timeout=torch.distributed.default_pg_timeout)
+                # Use barrier without timeout for compatibility with older PyTorch versions
+                dist.barrier()
             except Exception as e:
                 logger.error(f"Final distributed barrier failed in validation: {e}")
                 # Return the mIoU we have so far instead of crashing
