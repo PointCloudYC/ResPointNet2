@@ -4,7 +4,7 @@ Two-Stage Training Framework for Long-Tailed Learning
 Overview (Pseudo Code):
 Stage 1 - Representation Learning:
 1. Train full ResPointNet++ end-to-end on original long-tailed data
-2. Use standard cross-entropy or CB loss
+2. Use standard cross-entropy or the strong CB loss
 3. Learn rich geometric features from all available data
 4. Save trained model
 
@@ -213,17 +213,20 @@ class TwoStageTrainer:
             self.logger.info("Using standard MaskedCrossEntropy for Stage 2")
         
         # Create class-balanced dataloader for Stage 2
-        # balanced_train_loader = create_balanced_dataloader(
-        #     self.train_loader.dataset,
-        #     self.config.batch_size,
-        #     num_workers=self.config.num_workers,
-        #     sampler_type='point'
-        # )
-        # self.logger.info("Created class-balanced dataloader for Stage 2")
-        # For now, use the same dataloader as Stage 1 - class-balanced sampling can be added later
-
-        balanced_train_loader = self.train_loader
-        self.logger.info("Using standard dataloader for Stage 2 (class-balanced sampling can be added later)")
+        # This is the CORE of decoupled training - using balanced sampling for classifier fine-tuning
+        try:
+            balanced_train_loader = create_balanced_dataloader(
+                self.train_loader.dataset,
+                self.config.batch_size,
+                num_workers=self.config.num_workers,
+                sampler_type='point'
+            )
+            self.logger.info("✓ Created class-balanced dataloader for Stage 2 - implementing decoupled training theory!")
+            self.logger.info("  → Spheres with tail classes will be preferentially sampled")
+        except Exception as e:
+            self.logger.warning(f"Failed to create balanced dataloader: {e}")
+            self.logger.warning("Falling back to standard dataloader - this reduces effectiveness!")
+            balanced_train_loader = self.train_loader
         
         # Setup new optimizer for Stage 2 with lower learning rate
         stage2_optimizer = self._create_stage2_optimizer()
@@ -318,17 +321,31 @@ class TwoStageTrainer:
         return loss_meter.avg
     
     def _train_epoch_stage2(self, epoch, train_loader, criterion, optimizer):
-        """Train one epoch for Stage 2 with balanced data."""
+        """
+        Train one epoch for Stage 2 with balanced data and enhanced augmentation.
+        
+        Key insight: Since we're oversampling tail classes, we need strong augmentation
+        to prevent overfitting to the few tail class examples.
+        """
         from utils.util import AverageMeter
+        import datasets.data_utils as d_utils
         
         self.model.train()
         loss_meter = AverageMeter()
+        
+        # Enhanced augmentation for Stage 2 (stronger than Stage 1)
+        # This prevents overfitting to oversampled tail class examples
+        stage2_augmentation = self._get_stage2_augmentation()
         
         for idx, (points, mask, features, points_labels, cloud_label, input_inds) in enumerate(train_loader):
             points = points.cuda(non_blocking=True)
             mask = mask.cuda(non_blocking=True)
             features = features.cuda(non_blocking=True)
             points_labels = points_labels.cuda(non_blocking=True)
+            
+            # Apply enhanced augmentation for Stage 2
+            if stage2_augmentation is not None:
+                points, features = self._apply_stage2_augmentation(points, features, stage2_augmentation)
             
             pred = self.model(points, mask, features)
             loss = criterion(pred, points_labels, mask)
@@ -342,9 +359,71 @@ class TwoStageTrainer:
             
             if idx % self.config.print_freq == 0:
                 self.logger.info(f'STAGE2 Train: [{epoch}][{idx}/{len(train_loader)}]\t'
-                               f'Loss {loss_meter.val:.3f} ({loss_meter.avg:.3f})')
+                               f'Loss {loss_meter.val:.3f} ({loss_meter.avg:.3f}) [Enhanced Aug]')
         
         return loss_meter.avg
+    
+    def _get_stage2_augmentation(self):
+        """Get enhanced augmentation transforms for Stage 2."""
+        import datasets.data_utils as d_utils
+        
+        # Enhanced augmentation parameters (stronger than Stage 1)
+        enhanced_config = {
+            'x_angle_range': getattr(self.config, 'x_angle_range', 0.0),
+            'y_angle_range': getattr(self.config, 'y_angle_range', 0.0),  
+            'z_angle_range': getattr(self.config, 'z_angle_range', 3.1415926) * 1.5,  # 1.5x stronger rotation
+            'scale_low': max(0.5, getattr(self.config, 'scale_low', 0.7) - 0.1),  # More aggressive scaling
+            'scale_high': min(2.0, getattr(self.config, 'scale_high', 1.3) + 0.2),
+            'noise_std': getattr(self.config, 'noise_std', 0.001) * 2.0,  # 2x more noise
+            'noise_clip': getattr(self.config, 'noise_clip', 0.05) * 1.5,  # 1.5x noise clip
+            'augment_symmetries': getattr(self.config, 'augment_symmetries', [1, 0, 0])
+        }
+        
+        try:
+            augmentation = {
+                'rotation': d_utils.BatchPointcloudRandomRotate(
+                    x_range=enhanced_config['x_angle_range'],
+                    y_range=enhanced_config['y_angle_range'], 
+                    z_range=enhanced_config['z_angle_range']
+                ),
+                'scale_jitter': d_utils.BatchPointcloudScaleAndJitter(
+                    scale_low=enhanced_config['scale_low'],
+                    scale_high=enhanced_config['scale_high'],
+                    std=enhanced_config['noise_std'],
+                    clip=enhanced_config['noise_clip'],
+                    augment_symmetries=enhanced_config['augment_symmetries']
+                )
+            }
+            return augmentation
+        except Exception as e:
+            self.logger.warning(f"Could not create enhanced augmentation: {e}")
+            return None
+    
+    def _apply_stage2_augmentation(self, points, features, augmentation):
+        """Apply enhanced augmentation to points and features."""
+        try:
+            # Apply rotation
+            if 'rotation' in augmentation:
+                points = augmentation['rotation'](points)
+            
+            # Apply scale and jitter  
+            if 'scale_jitter' in augmentation:
+                points = augmentation['scale_jitter'](points)
+            
+            # Update features if they include coordinates
+            if self.config.input_features_dim >= 6:
+                if self.config.input_features_dim == 6:
+                    color = features[:, :3, :]
+                    features = torch.cat([color, points.transpose(1, 2).contiguous()], 1)
+                elif self.config.input_features_dim == 7:
+                    color_h = features[:, :4, :]
+                    features = torch.cat([color_h, points.transpose(1, 2).contiguous()], 1)
+            
+            return points, features
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to apply Stage 2 augmentation: {e}")
+            return points, features
     
     def _freeze_encoder(self):
         """Freeze encoder/backbone layers."""
