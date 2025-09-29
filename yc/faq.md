@@ -38,3 +38,55 @@ bash init.sh
   - [pointnet2\_ops install problem · Issue #174 · erikwijmans/Pointnet2\_PyTorch](https://github.com/erikwijmans/Pointnet2_PyTorch/issues/174)
   - [CUDA Installation Guide for Linux — Installation Guide for Linux 13.0 documentation](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#installing-cuda-using-conda)
   - [Previous PyTorch Versions](https://pytorch.org/get-started/previous-versions/)
+
+
+  ## miou is alsways zero for the baseline training@250924
+
+  - prob.: tittle; reporting 1)miou is alsways zero for the baseline training;
+  - sol.:  dist.barrier() pytorch 1.13.1 has no timeout parameter, so we need to use dist.barrier() to sync the processes.
+
+  ## can not resume training for two-stage training@250924
+
+  - prob.: tittle; reporting 1)can not resume training;
+  - sol.: make sure the log_dir is the same as the original training;
+
+  ## implementation the tail-class aware sampling@250924
+
+  - prob.: tittle; 
+  - sol.:  refer to the core.md and cb_sampler.py;
+
+
+  ## decoupled training vs. curriculum learning@250924
+
+They both stem from the idea that the standard, random-order (i.i.d.) training paradigm is not always optimal. However, they structure the learning process in different ways to achieve different goals.
+
+---
+The Shared Intuition: Structured Learning 🤔
+Both **Decoupled Training** and **Curriculum Learning (CL)** are built on the idea of making the learning problem easier for the model by presenting information in a structured, non-random order. They both move from a "simpler" phase to a "harder" phase.
+* In **Curriculum Learning**, "simple" means easy-to-classify examples.
+* In **Decoupled Training**, "simple" means learning general features from all data without worrying about class imbalance.
+
+---
+
+Key Differences: What vs. How
+
+The primary difference lies in *what* is being manipulated and for *what purpose*. A simple table makes this clear:
+
+| Feature                   | **Curriculum Learning (CL)** | **Decoupled Training (for LTL)** |
+| ------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| **Primary Goal** | Guide optimization to a better minimum and speed up convergence. | **Debias the classifier** that is skewed by the long-tailed data.  |
+| **What is Manipulated?** | The **order and difficulty of data samples**.                | The **training stages and model components** (e.g., freezing the encoder). |
+| **Data Progression** | Starts with "easy" samples, then gradually introduces "harder" ones. | Starts with the **full, imbalanced dataset**, then switches to a **class-balanced subset**. |
+| **Model & Objective** | The model architecture and loss function typically remain **fixed** throughout. | The model's state **changes** (layers are frozen) and the data distribution for training changes. |
+
+---
+
+### ## Relationship: Are They the Same or a Subset? 🍎🍊
+
+No, they are not the same, and decoupled training is **not considered a subset of curriculum learning**.
+
+Think of them as different teaching philosophies:
+* **Curriculum Learning** is like teaching a child math by starting with `1+1=2` before moving to algebra. You order the topics from easy to hard, but the student (the model) is always the same.
+* **Decoupled Training** is like a university student's learning process. First, they attend all lectures for a semester to gain broad foundational knowledge (**Stage 1: Representation**). Then, they do targeted, intense practice on past exam questions, focusing on the tricky topics they know will appear (**Stage 2: Classifier Re-training**). The *phase* and *goal* of learning have changed.
+
+**Conclusion:** Decoupled training is best described as a **multi-stage training strategy** specifically designed to solve the problem of representation-classifier conflict in long-tailed datasets. While it shares the spirit of structured learning with curriculum learning, its mechanics and primary motivation are distinct.
