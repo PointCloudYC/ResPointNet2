@@ -1,5 +1,46 @@
 #!/bin/bash
 
+# Function to check GPU memory availability
+check_gpu_memory() {
+    # Get available memory for each GPU
+    gpu_info=$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits)
+    
+    for mem in $gpu_info; do
+        if [ "$mem" -ge 19000 ]; then
+            return 0  # At least one GPU has 19GB+ free memory
+        fi
+    done
+    
+    return 1  # No GPU with enough memory
+}
+
+# Check if GPUs are available and have enough memory
+if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+    echo "GPU with sufficient memory found. Starting paper experiments..."
+else
+    echo "No GPU with 19GB+ memory available. Will retry in 4 hours."
+    sleep 14400  # Wait for 4 hours 
+    
+    # Check again after waiting
+    if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+        echo "GPU with sufficient memory now available. Starting experiments..."
+    else
+        echo "Still no GPU with sufficient memory. Will retry in 4 hours."
+        sleep 14400  # Wait for 4 hours
+        if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+            echo "GPU with sufficient memory now available. Starting experiments..."
+        else
+            sleep 14400  # Wait for 4 hours
+            if command -v nvidia-smi &> /dev/null && check_gpu_memory; then
+                echo "GPU with sufficient memory now available. Starting experiments..."
+            else
+                echo "Still no GPU with sufficient memory. Exiting."
+                exit 1
+            fi
+        fi
+    fi
+fi
+
 set -e # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration ---

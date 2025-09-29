@@ -20,6 +20,7 @@ use_cb_loss_stage2=true
 freeze_encoder=true
 patience=20
 
+
 echo "================================================="
 echo "Resuming Two-Stage training from interrupted experiment..."
 echo "Experiment directory: ${experiment_dir}"
@@ -27,6 +28,14 @@ echo "Stage 1 Epochs: ${stage1_epochs}, Stage 2 Epochs: ${stage2_epochs}"
 echo "Stage 1  CB Loss: ${use_cb_loss_stage1}, Stage 2 CB Loss: ${use_cb_loss_stage2}"
 echo "Freeze Encoder: ${freeze_encoder}"
 echo "================================================="
+
+# Check if Stage 1 checkpoint exists
+stage1_checkpoint="${experiment_dir}/stage1/stage1_best.pth"
+if [ ! -f "${stage1_checkpoint}" ]; then
+    echo "ERROR: Stage 1 checkpoint not found at ${stage1_checkpoint}"
+    echo "Cannot resume training!"
+    exit 1
+fi
 
 # Resume training - the trainer will automatically skip Stage 1 if it finds the checkpoint
 # use CB loss or strong CB loss
