@@ -198,6 +198,8 @@ class TwoStageTrainer:
             self.logger.info("Encoder layers frozen")
         
         # Setup Stage 2 criterion
+        # Key insight: With balanced sampling, CE loss might be better than CB loss?
+        # since the data imbalance is already addressed by the sampler
         if self.use_cb_loss_stage2:
             stage2_criterion = create_cb_loss(
                 self.train_loader.dataset, 
@@ -207,10 +209,12 @@ class TwoStageTrainer:
                 alpha=getattr(self.config, 'cb_alpha', 1.0)
             )
             stage2_criterion.cuda()
-            self.logger.info("Using Class-Balanced Loss for Stage 2")
+            self.logger.info("Using Class-Balanced Loss for Stage 2 (with balanced sampling)")
+            self.logger.info("  → Note: Consider CE loss since data is already balanced by sampler")
         else:
             stage2_criterion = self.criterion
-            self.logger.info("Using standard MaskedCrossEntropy for Stage 2")
+            self.logger.info("Using standard MaskedCrossEntropy for Stage 2 (recommended with balanced sampling)")
+            self.logger.info("  → Cleaner optimization since sampling handles class balance")
         
         # Create class-balanced dataloader for Stage 2
         # This is the CORE of decoupled training - using balanced sampling for classifier fine-tuning

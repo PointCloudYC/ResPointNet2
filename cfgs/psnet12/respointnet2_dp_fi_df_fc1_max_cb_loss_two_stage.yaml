@@ -76,9 +76,9 @@ freeze_encoder: true      # Freeze backbone in Stage 2 (usually true)
 # ---------------------------------------------------------------------------- #
 use_cb_loss: false       # For compatibility, use stage-specific flags above
 cb_beta: 0.9999          # Effective number hyperparameter (higher for more long-tailed)
-cb_gamma: 2.0            # Focal loss focusing parameter
+cb_gamma: 3.0            # Focal loss focusing parameter
 # cb_gamma: 3.0        # Higher gamma for more focus on hard examples  
-cb_alpha: 1.0            # Loss weighting factor
+cb_alpha: 2.0            # Loss weighting factor
 # cb_alpha: 2.0        # Higher alpha for stronger loss weighting
 
 # ---------------------------------------------------------------------------- #
