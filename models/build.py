@@ -10,9 +10,11 @@ try:
 except:
     from heads import ClassifierResNet, SceneSegHeadResNet, SqnHeadResNet
 try:
-    from .losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, create_cb_loss
+    from .losses import (LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, 
+                         create_cb_loss, create_ld_cb_loss, create_gc_cb_loss)
 except:
-    from losses import LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, create_cb_loss
+    from losses import (LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, 
+                        create_cb_loss, create_ld_cb_loss, create_gc_cb_loss)
 
 
 def build_scene_segmentation(config):
@@ -55,6 +57,72 @@ def build_scene_segmentation_with_cb_loss(config, dataset):
     alpha = getattr(config, 'cb_alpha', 1.0)
     
     criterion = create_cb_loss(dataset, config.num_classes, beta, gamma, alpha)
+    return model, criterion
+
+
+def build_scene_segmentation_with_ld_cb_loss(config, dataset):
+    """create a semantic segmentation model and Local Density-Aware CB loss
+
+    Args:
+        config (dict): the config object
+        dataset: training dataset for calculating class statistics
+
+    Returns:
+        tuple: the model and LD-CB loss
+    """
+
+    model = SceneSegmentationModel(config, config.backbone, config.head, config.num_classes,
+                                   config.input_features_dim,
+                                   config.radius, config.sampleDl, config.nsamples, config.npoints,
+                                   config.width, config.depth, config.bottleneck_ratio)
+    
+    # Create LD-CB loss with config parameters or defaults
+    beta = getattr(config, 'cb_beta', 0.9999)
+    gamma = getattr(config, 'cb_gamma', 2.0) 
+    alpha = getattr(config, 'cb_alpha', 1.0)
+    density_radius = getattr(config, 'ld_density_radius', 0.5)
+    density_weight = getattr(config, 'ld_density_weight', 1.0)
+    
+    criterion = create_ld_cb_loss(
+        dataset, config.num_classes, 
+        beta=beta, gamma=gamma, alpha=alpha,
+        density_radius=density_radius, 
+        density_weight=density_weight
+    )
+    return model, criterion
+
+
+def build_scene_segmentation_with_gc_cb_loss(config, dataset):
+    """create a semantic segmentation model and Geometric Context-Aware CB loss
+
+    Args:
+        config (dict): the config object
+        dataset: training dataset for calculating class statistics
+
+    Returns:
+        tuple: the model and GC-CB loss
+    """
+
+    model = SceneSegmentationModel(config, config.backbone, config.head, config.num_classes,
+                                   config.input_features_dim,
+                                   config.radius, config.sampleDl, config.nsamples, config.npoints,
+                                   config.width, config.depth, config.bottleneck_ratio)
+    
+    # Create GC-CB loss with config parameters or defaults
+    beta = getattr(config, 'cb_beta', 0.9999)
+    gamma = getattr(config, 'cb_gamma', 2.0) 
+    alpha = getattr(config, 'cb_alpha', 1.0)
+    context_k = getattr(config, 'gc_context_k', 16)
+    context_weight = getattr(config, 'gc_context_weight', 1.0)
+    entropy_temp = getattr(config, 'gc_entropy_temp', 1.0)
+    
+    criterion = create_gc_cb_loss(
+        dataset, config.num_classes,
+        beta=beta, gamma=gamma, alpha=alpha,
+        context_k=context_k,
+        context_weight=context_weight,
+        entropy_temp=entropy_temp
+    )
     return model, criterion
 
 def build_scene_segmentation_sqn(config,weak_supervision_ratio=0.1):

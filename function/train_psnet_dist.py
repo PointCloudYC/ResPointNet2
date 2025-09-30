@@ -22,7 +22,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel
 
 import datasets.data_utils as d_utils
-from models import build_scene_segmentation, build_scene_segmentation_with_cb_loss # models/build.py
+from models import (build_scene_segmentation, build_scene_segmentation_with_cb_loss,
+                   build_scene_segmentation_with_ld_cb_loss, 
+                   build_scene_segmentation_with_gc_cb_loss) # models/build.py
 from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_part_metrics
 from utils.lr_scheduler import get_scheduler
@@ -54,10 +56,21 @@ def parse_option():
     parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for early stopping')
 
     # CB loss parameters
-    parser.add_argument('--use_cb_loss', action='store_true', help='use class-balanced loss')
+    parser.add_argument('--cb_loss_type', type=str, default='standard', 
+                       choices=['none', 'standard', 'ld', 'gc'],
+                       help='CB loss variant: none (standard CE), standard (CB), ld (Local Density), gc (Geometric Context)')
     parser.add_argument('--cb_beta', type=float, default=0.9999, help='CB loss beta parameter')
     parser.add_argument('--cb_gamma', type=float, default=2.0, help='CB loss gamma (focal) parameter')
     parser.add_argument('--cb_alpha', type=float, default=1.0, help='CB loss alpha (weighting) parameter')
+    
+    # Local Density-Aware CB loss parameters
+    parser.add_argument('--ld_density_radius', type=float, default=0.5, help='LD-CB: radius for local density calculation')
+    parser.add_argument('--ld_density_weight', type=float, default=1.0, help='LD-CB: weight for density modulation')
+    
+    # Geometric Context-Aware CB loss parameters
+    parser.add_argument('--gc_context_k', type=int, default=16, help='GC-CB: number of neighbors for context')
+    parser.add_argument('--gc_context_weight', type=float, default=1.0, help='GC-CB: weight for contextual hardness')
+    parser.add_argument('--gc_entropy_temp', type=float, default=1.0, help='GC-CB: temperature for entropy calculation')
 
     # misc
     parser.add_argument("--local_rank", type=int, help='local rank for DistributedDataParallel')
@@ -79,10 +92,19 @@ def parse_option():
     config.early_stopping_patience = args.early_stopping_patience
     
     # CB loss parameters
-    config.use_cb_loss = args.use_cb_loss
+    config.cb_loss_type = args.cb_loss_type
     config.cb_beta = args.cb_beta
     config.cb_gamma = args.cb_gamma
     config.cb_alpha = args.cb_alpha
+    
+    # LD-CB loss parameters
+    config.ld_density_radius = args.ld_density_radius
+    config.ld_density_weight = args.ld_density_weight
+    
+    # GC-CB loss parameters
+    config.gc_context_k = args.gc_context_k
+    config.gc_context_weight = args.gc_context_weight
+    config.gc_entropy_temp = args.gc_entropy_temp
 
     # ddir_name = args.cfg.split('.')[-2].split('/')[-1]
     # config.log_dir = os.path.join(args.log_dir, 'psnet', f'{ddir_name}_{int(time.time())}')
@@ -228,11 +250,19 @@ def main(config):
     logger.info(f"length of validation dataset: {n_data}")
 
     # Build model and loss function
-    if config.use_cb_loss:
-        logger.info("Using Class-Balanced Loss")
+    cb_loss_type = getattr(config, 'cb_loss_type', 'none')
+    
+    if cb_loss_type == 'ld':
+        logger.info("Using Local Density-Aware Class-Balanced Loss")
+        model, criterion = build_scene_segmentation_with_ld_cb_loss(config, train_loader.dataset)
+    elif cb_loss_type == 'gc':
+        logger.info("Using Geometric Context-Aware Class-Balanced Loss")
+        model, criterion = build_scene_segmentation_with_gc_cb_loss(config, train_loader.dataset)
+    elif cb_loss_type == 'standard':
+        logger.info("Using Standard Class-Balanced Loss")
         model, criterion = build_scene_segmentation_with_cb_loss(config, train_loader.dataset)
     else:
-        logger.info("Using standard MaskedCrossEntropy Loss")
+        logger.info("Using Standard MaskedCrossEntropy Loss")
         model, criterion = build_scene_segmentation(config)
     
     model.cuda()
@@ -359,7 +389,12 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler, config):
         points_labels = points_labels.cuda(non_blocking=True)
 
         pred = model(points, mask, features)
-        loss = criterion(pred, points_labels, mask)
+        
+        # GC-CB loss requires points for neighborhood computation
+        if hasattr(criterion, '__class__') and 'GeometricContext' in criterion.__class__.__name__:
+            loss = criterion(pred, points_labels, mask, points)
+        else:
+            loss = criterion(pred, points_labels, mask)
 
         optimizer.zero_grad()
         loss.backward()
@@ -465,7 +500,13 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
                 input_inds = input_inds.cuda(non_blocking=True)
 
                 pred = model(points, mask, features)
-                loss = criterion(pred, points_labels, mask)
+                
+                # GC-CB loss requires points for neighborhood computation
+                if hasattr(criterion, '__class__') and 'GeometricContext' in criterion.__class__.__name__:
+                    loss = criterion(pred, points_labels, mask, points)
+                else:
+                    loss = criterion(pred, points_labels, mask)
+                    
                 losses.update(loss.item(), points.size(0))
 
                 # collect
