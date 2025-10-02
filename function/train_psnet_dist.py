@@ -568,7 +568,11 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
 if __name__ == "__main__":
     opt, config = parse_option()
 
-    torch.cuda.set_device(config.local_rank)
+    # Get local rank from environment variable (set by torchrun)
+    local_rank = int(os.environ.get('LOCAL_RANK', 0))
+    config.local_rank = local_rank
+    
+    torch.cuda.set_device(local_rank)
     torch.distributed.init_process_group(backend='nccl', init_method='env://')
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True

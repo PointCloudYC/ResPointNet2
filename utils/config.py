@@ -22,8 +22,17 @@ config.grid_clip_norm = -1
 # ---------------------------------------------------------------------------- #
 config.use_cb_loss = False
 config.cb_beta = 0.9999
-config.cb_gamma = 2.0
-config.cb_alpha = 1.0
+config.cb_gamma = 3.0 # 3 for strong version
+config.cb_alpha = 2.0 # 2 for strong version
+config.cb_loss_type = 'standard' # none, standard, ld, gc
+# local density aware cb loss
+config.ld_density_radius = 0.5
+config.ld_density_weight = 1.0
+# geometric context aware cb loss
+config.gc_context_k = 16
+config.gc_context_weight = 1.0
+config.gc_entropy_temp = 1.0
+
 # ---------------------------------------------------------------------------- #
 # Two-stage training
 # ---------------------------------------------------------------------------- #
@@ -31,6 +40,8 @@ config.use_two_stage = False
 config.stage1_epochs = 200
 config.stage2_epochs = 50
 config.stage2_lr = 0.001
+config.stage2_warmup_epochs = 10
+config.sampling_temperature = 2.0
 config.use_cb_loss_stage1 = False
 config.use_cb_loss_stage2 = True
 config.freeze_encoder = True
