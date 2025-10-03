@@ -133,14 +133,14 @@ exp2_standard_cb() {
 exp3_ld_cb() {
     run_experiment 3 "ld_cb_loss_primary" \
         "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-        ""
+        "--cb_loss_type ld"
 }
 
 # Experiment 4: Geometric Context-Aware CB Loss (SECONDARY CONTRIBUTION)
 exp4_gc_cb() {
     run_experiment 4 "gc_cb_loss_secondary" \
         "respointnet2_dp_fi_df_fc1_max_gc_cb_loss.yaml" \
-        ""
+        "--cb_loss_type gc"
 }
 
 # =============================================================================
@@ -155,12 +155,14 @@ exp5_ld_cb_radius_ablation() {
     local radii=(0.3 0.5 0.7 1.0)
     
     for radius in "${radii[@]}"; do
-        local exp_id="5_ld_radius_${radius}"
+        # Replace dots with underscores for valid bash variable names
+        local radius_str="${radius//./_}"
+        local exp_id="5_ld_radius_${radius_str}"
         print_info "Testing density_radius = ${radius}m"
         
         run_experiment ${exp_id} "ld_cb_radius${radius}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--ld_density_radius ${radius}"
+            "--cb_loss_type ld --ld_density_radius ${radius}"
     done
 }
 
@@ -172,12 +174,14 @@ exp6_ld_cb_weight_ablation() {
     local weights=(0.0 0.5 1.0 1.5)
     
     for weight in "${weights[@]}"; do
-        local exp_id="6_ld_weight_${weight}"
+        # Replace dots with underscores for valid bash variable names
+        local weight_str="${weight//./_}"
+        local exp_id="6_ld_weight_${weight_str}"
         print_info "Testing density_weight = ${weight}"
         
         run_experiment ${exp_id} "ld_cb_weight${weight}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--ld_density_weight ${weight}"
+            "--cb_loss_type ld --ld_density_weight ${weight}"
     done
 }
 
@@ -198,7 +202,7 @@ exp7_gc_cb_k_ablation() {
         
         run_experiment ${exp_id} "gc_cb_k${k}" \
             "respointnet2_dp_fi_df_fc1_max_gc_cb_loss.yaml" \
-            "--gc_context_k ${k}"
+            "--cb_loss_type gc --gc_context_k ${k}"
     done
 }
 
@@ -215,7 +219,7 @@ exp8_gc_cb_weight_ablation() {
         
         run_experiment ${exp_id} "gc_cb_weight${weight}" \
             "respointnet2_dp_fi_df_fc1_max_gc_cb_loss.yaml" \
-            "--gc_context_weight ${weight}"
+            "--cb_loss_type gc --gc_context_weight ${weight}"
     done
 }
 
@@ -231,7 +235,9 @@ exp9_beta_ablation() {
     local betas=(0.99 0.999 0.9999 0.99999)
     
     for beta in "${betas[@]}"; do
-        local exp_id="9_beta_${beta}"
+        # Replace dots with underscores for valid bash variable names
+        local beta_str="${beta//./_}"
+        local exp_id="9_beta_${beta_str}"
         print_info "Testing cb_beta = ${beta}"
         
         # Test with standard CB loss
@@ -242,7 +248,7 @@ exp9_beta_ablation() {
         # Test with LD-CB loss
         run_experiment "${exp_id}_ld" "ld_cb_beta${beta}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--cb_beta ${beta}"
+            "--cb_loss_type ld --cb_beta ${beta}"
     done
 }
 
@@ -254,12 +260,14 @@ exp10_gamma_ablation() {
     local gammas=(0.0 1.0 2.0 3.0)
     
     for gamma in "${gammas[@]}"; do
-        local exp_id="10_gamma_${gamma}"
+        # Replace dots with underscores for valid bash variable names
+        local gamma_str="${gamma//./_}"
+        local exp_id="10_gamma_${gamma_str}"
         print_info "Testing cb_gamma = ${gamma}"
         
         run_experiment ${exp_id} "ld_cb_gamma${gamma}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--cb_gamma ${gamma}"
+            "--cb_loss_type ld --cb_gamma ${gamma}"
     done
 }
 
@@ -271,12 +279,14 @@ exp11_lr_sensitivity() {
     local lrs=(0.005 0.01 0.02)
     
     for lr in "${lrs[@]}"; do
-        local exp_id="11_lr_${lr}"
+        # Replace dots with underscores for valid bash variable names
+        local lr_str="${lr//./_}"
+        local exp_id="11_lr_${lr_str}"
         print_info "Testing base_learning_rate = ${lr}"
         
         run_experiment ${exp_id} "ld_cb_lr${lr}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--base_learning_rate ${lr}"
+            "--cb_loss_type ld --base_learning_rate ${lr}"
     done
 }
 
@@ -293,7 +303,7 @@ exp12_seed_robustness() {
         
         run_experiment ${exp_id} "ld_cb_seed${seed}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-            "--rng_seed ${seed}"
+            "--cb_loss_type ld --rng_seed ${seed}"
     done
 }
 
@@ -305,12 +315,14 @@ exp13_gc_entropy_temp() {
     local temps=(0.5 1.0 2.0)
     
     for temp in "${temps[@]}"; do
-        local exp_id="13_entropy_temp_${temp}"
+        # Replace dots with underscores for valid bash variable names
+        local temp_str="${temp//./_}"
+        local exp_id="13_entropy_temp_${temp_str}"
         print_info "Testing entropy_temp = ${temp}"
         
         run_experiment ${exp_id} "gc_cb_temp${temp}" \
             "respointnet2_dp_fi_df_fc1_max_gc_cb_loss.yaml" \
-            "--gc_entropy_temp ${temp}"
+            "--cb_loss_type gc --gc_entropy_temp ${temp}"
     done
 }
 
@@ -322,7 +334,7 @@ exp14_efficiency_test() {
     
     run_experiment "14_ld_300ep" "ld_cb_300epochs" \
         "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
-        "--epochs 300"
+        "--cb_loss_type ld --epochs 300"
     
     run_experiment "14_standard_300ep" "standard_cb_300epochs" \
         "respointnet2_dp_fi_df_fc1_max_cb_loss.yaml" \

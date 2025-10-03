@@ -71,7 +71,8 @@ class LocalDensityAwareCBLoss(nn.Module):
         self.density_weight = density_weight
         
         # Calculate CB weights (class frequency balancing)
-        effective_num = 1.0 - np.power(beta, samples_per_class)
+        # Correct formula: effective_num = (1 - β^n) / (1 - β)
+        effective_num = (1.0 - np.power(beta, samples_per_class)) / (1.0 - beta)
         cb_weights = (1.0 - beta) / np.array(effective_num)
         cb_weights = cb_weights / np.sum(cb_weights) * num_classes  # Normalize
         
@@ -268,7 +269,8 @@ def create_ld_cb_loss(
     print("-" * 75)
     
     # Calculate preview weights for display
-    effective_num = 1.0 - np.power(beta, samples_per_class)
+    # Correct formula: effective_num = (1 - β^n) / (1 - β)
+    effective_num = (1.0 - np.power(beta, samples_per_class)) / (1.0 - beta)
     cb_weights = (1.0 - beta) / np.array(effective_num)
     cb_weights = cb_weights / np.sum(cb_weights) * num_classes
     

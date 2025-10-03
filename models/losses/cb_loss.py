@@ -6,6 +6,8 @@ Overview (Pseudo Code):
 2. Compute class weights: weights = (1 - beta) / eff_num
 3. Apply focal loss with class balancing: CB_loss = alpha * weights * focal_loss
 
+Note: This implementation correctly follows the CVPR 2019 paper formula.
+
 This implementation adapts CB loss for masked segmentation tasks in 3D point clouds.
 justification:
 - Point-Level Imbalance: Even if you have equal numbers of pipe and valve objects, pipes are typically larger → more points per pipe
@@ -45,8 +47,10 @@ class ClassBalancedLoss(nn.Module):
         self.alpha = alpha
         
         # Calculate effective number of samples
-        effective_num = 1.0 - np.power(beta, samples_per_class)
+        # Correct formula: effective_num = (1 - β^n) / (1 - β)
+        effective_num = (1.0 - np.power(beta, samples_per_class)) / (1.0 - beta)
         weights = (1.0 - beta) / np.array(effective_num)
+        # critical: normalize the weights to sum to num_classes
         weights = weights / np.sum(weights) * num_classes  # Normalize
         
         self.register_buffer('weights', torch.tensor(weights, dtype=torch.float32))

@@ -76,7 +76,8 @@ class GeometricContextAwareCBLoss(nn.Module):
         self.entropy_temp = entropy_temp
         
         # Calculate CB weights (class frequency balancing)
-        effective_num = 1.0 - np.power(beta, samples_per_class)
+        # Correct formula: effective_num = (1 - β^n) / (1 - β)
+        effective_num = (1.0 - np.power(beta, samples_per_class)) / (1.0 - beta)
         cb_weights = (1.0 - beta) / np.array(effective_num)
         cb_weights = cb_weights / np.sum(cb_weights) * num_classes  # Normalize
         
@@ -91,6 +92,8 @@ class GeometricContextAwareCBLoss(nn.Module):
     ) -> torch.Tensor:
         """
         Compute prediction entropy for k-nearest neighbors of each point.
+        
+        Memory-efficient implementation using chunked KNN computation.
         
         Args:
             points: Point coordinates (B, N, 3)
@@ -107,6 +110,9 @@ class GeometricContextAwareCBLoss(nn.Module):
         # Initialize entropy tensor
         neighborhood_entropy = torch.zeros(batch_size, num_points, device=device)
         
+        # Chunk size for memory-efficient processing (tune based on GPU memory)
+        chunk_size = 1024
+        
         for b in range(batch_size):
             # Get valid points for this batch item
             valid_mask = mask[b] > 0
@@ -116,15 +122,44 @@ class GeometricContextAwareCBLoss(nn.Module):
             valid_points = points[b, valid_mask]  # (N_valid, 3)
             valid_probs = probs[b, valid_mask]  # (N_valid, C)
             
-            # Compute pairwise distances
+            # Compute pairwise distances, this is much slower than the current implementation
             # dist[i,j] = ||point_i - point_j||^2
-            diff = valid_points.unsqueeze(1) - valid_points.unsqueeze(0)  # (N_valid, N_valid, 3)
-            dist = torch.sum(diff ** 2, dim=2)  # (N_valid, N_valid)
+            # diff = valid_points.unsqueeze(1) - valid_points.unsqueeze(0)  # (N_valid, N_valid, 3)
+            # dist = torch.sum(diff ** 2, dim=2)  # (N_valid, N_valid)
+            n_valid = valid_points.shape[0]
+            
+            # Ensure k doesn't exceed available points
+            k_actual = min(k, n_valid - 1)
+            if k_actual <= 0:
+                continue
+            
+            # Process in chunks to avoid OOM
+            all_neighbor_indices = []
+            for start_idx in range(0, n_valid, chunk_size):
+                end_idx = min(start_idx + chunk_size, n_valid)
+                chunk_points = valid_points[start_idx:end_idx]  # (chunk_size, 3)
+                
+                # Compute distances from chunk to all valid points
+                # Using broadcasting: (chunk_size, 1, 3) - (1, N_valid, 3) -> (chunk_size, N_valid, 3)
+                diff = chunk_points.unsqueeze(1) - valid_points.unsqueeze(0)
+                dist = torch.sum(diff ** 2, dim=2)  # (chunk_size, N_valid)
+                
+                # Exclude self-distance for points in the chunk
+                for local_idx in range(dist.shape[0]):
+                    global_idx = start_idx + local_idx
+                    dist[local_idx, global_idx] = float('inf')
+                
+                # Get k nearest neighbors
+                _, neighbor_indices = torch.topk(dist, k_actual, largest=False, dim=1)  # (chunk_size, k)
+                all_neighbor_indices.append(neighbor_indices)
             
             # Get k nearest neighbors (excluding self)
             # Add large value to diagonal to exclude self
-            dist = dist + torch.eye(dist.shape[0], device=device) * 1e10
-            _, neighbor_indices = torch.topk(dist, k, largest=False, dim=1)  # (N_valid, k)
+            # dist = dist + torch.eye(dist.shape[0], device=device) * 1e10
+            # _, neighbor_indices = torch.topk(dist, k, largest=False, dim=1)  # (N_valid, k)
+            # Concatenate all chunks
+            # new way to get k nearest neighbors
+            neighbor_indices = torch.cat(all_neighbor_indices, dim=0)  # (N_valid, k)
             
             # Gather neighbor probabilities
             neighbor_probs = valid_probs[neighbor_indices]  # (N_valid, k, C)
@@ -262,7 +297,8 @@ def create_gc_cb_loss(
     print("-" * 45)
     
     # Calculate preview weights for display
-    effective_num = 1.0 - np.power(beta, samples_per_class)
+    # Correct formula: effective_num = (1 - β^n) / (1 - β)
+    effective_num = (1.0 - np.power(beta, samples_per_class)) / (1.0 - beta)
     cb_weights = (1.0 - beta) / np.array(effective_num)
     cb_weights = cb_weights / np.sum(cb_weights) * num_classes
     
