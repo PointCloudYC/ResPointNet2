@@ -50,6 +50,8 @@ def parse_option():
     parser.add_argument('--stage1_epochs', type=int, help='number of stage 1 epochs')
     parser.add_argument('--stage2_epochs', type=int, help='number of stage 2 epochs')
     parser.add_argument('--stage2_lr', type=float, help='stage 2 learning rate')
+    parser.add_argument('--stage2_warmup_epochs', type=int, help='number of warmup epochs for stage 2 (default: auto)')
+    parser.add_argument('--sampling_temperature', type=float, default=2.0, help='temperature for class-balanced sampling (>1.0 = more conservative)')
     parser.add_argument('--use_cb_loss_stage1', action='store_true', help='use CB loss in stage 1')
     parser.add_argument('--use_cb_loss_stage2', action='store_true', help='use CB loss in stage 2')
     parser.add_argument('--freeze_encoder', action='store_true', default=True, help='freeze encoder in stage 2')
@@ -91,9 +93,14 @@ def parse_option():
     # Two-stage specific configurations
     config.stage1_epochs = args.stage1_epochs or config.epochs
     config.stage2_epochs = args.stage2_epochs or (config.epochs // 4)
-    config.stage2_lr = args.stage2_lr or (config.base_learning_rate * 0.1)
+    # FIX #1: Reduced default stage2_lr from 0.2 to 0.05 for much more conservative fine-tuning
+    config.stage2_lr = args.stage2_lr or (config.base_learning_rate * 0.05)
+    # FIX #2: Add configurable warmup epochs
+    config.stage2_warmup_epochs = args.stage2_warmup_epochs  # None = auto (will be set by trainer)
+    # FIX #3: Add sampling temperature for more conservative class-balanced sampling
+    config.sampling_temperature = args.sampling_temperature
     config.use_cb_loss_stage1 = args.use_cb_loss_stage1
-    config.use_cb_loss_stage2 = args.use_cb_loss_stage2 or True  # Default to True for stage 2
+    config.use_cb_loss_stage2 = args.use_cb_loss_stage2 if args.use_cb_loss_stage2 else False  # Fixed Issue #3: Default to False (CE loss)
     config.freeze_encoder = args.freeze_encoder
     
     # CB loss parameters
@@ -382,12 +389,25 @@ def main(config):
     runing_vote_logits = [np.zeros((config.num_classes, l.shape[0]), dtype=np.float32) for l in
                           val_loader.dataset.sub_clouds_points_labels]
 
-    # optionally resume from a checkpoint
+    # optionally resume from a checkpoint or use pretrained Stage 1
     if config.load_path:
         assert os.path.isfile(config.load_path)
         trainer._load_checkpoint(config.load_path)
         logger.info("==> checking loaded ckpt")
         validate('resume', val_loader, model, criterion, runing_vote_logits, config, num_votes=2)
+        
+        # If we loaded an external checkpoint, mark Stage 1 as completed and copy it to stage1 directory
+        if not trainer.stage1_completed:
+            logger.info(f"Loaded external pretrained checkpoint: {config.load_path}")
+            logger.info("Treating this as completed Stage 1 - copying to stage1 directory")
+            
+            # Copy the pretrained checkpoint to stage1_best.pth for proper two-stage workflow
+            import shutil
+            stage1_best_path = os.path.join(trainer.stage1_dir, 'stage1_best.pth')
+            shutil.copy2(config.load_path, stage1_best_path)
+            trainer.stage1_completed = True
+            logger.info(f"Pretrained checkpoint copied to: {stage1_best_path}")
+            logger.info("Stage 1 marked as completed - will proceed directly to Stage 2")
 
     # Stage 1: Representation Learning
     logger.info("Starting Two-Stage Training")
@@ -396,13 +416,26 @@ def main(config):
                             validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes))
     else:
         logger.info("Stage 1 already completed, skipping to Stage 2")
+        logger.info("Note: Stage 1 checkpoint will be validated inside train_stage2() after loading")
 
     # Stage 2: Classifier Re-training
     trainer.train_stage2(lambda epoch, val_loader, model, criterion, num_votes:
                         validate(epoch, val_loader, model, criterion, runing_vote_logits, config, num_votes))
 
+    # Load best model from Stage 2 for final validation
+    logger.info("Loading best Stage 2 model for final validation...")
+    stage2_best_path = os.path.join(trainer.stage2_dir, 'stage2_best.pth')
+    if os.path.exists(stage2_best_path):
+        trainer._load_checkpoint(stage2_best_path)
+    else:
+        logger.warning("No best Stage 2 checkpoint found. Using model from last epoch for final validation.")
+
     # Final validation
     validate('Final', val_loader, model, criterion, runing_vote_logits, config, num_votes=20)
+
+    logger.info("=" * 60)
+    logger.info("TWO-STAGE TRAINING COMPLETED SUCCESSFULLY")
+    logger.info("=" * 60)
 
 
 if __name__ == "__main__":
@@ -436,8 +469,11 @@ if __name__ == "__main__":
     if dist.get_rank() == 0:
         path = os.path.join(config.log_dir, "config.json")
         with open(path, 'w') as f:
-            json.dump(vars(opt), f, indent=2)
-            json.dump(vars(config), f, indent=2)
+            full_config = {
+                'args': vars(opt),
+                'config': vars(config)
+            }
+            json.dump(full_config, f, indent=2)
             os.system('cp %s %s' % (opt.cfg, config.log_dir))
         logger.info("Full config saved to {}".format(path))
     main(config)

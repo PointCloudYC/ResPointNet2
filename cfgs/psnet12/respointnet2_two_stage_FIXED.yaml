@@ -1,0 +1,131 @@
+datasets: 'psnet12'
+data_root: ''
+num_classes: 12
+input_features_dim: 4
+batch_size: 6 # set 2, about 8Gb, 3 12GB, 6, 24GB; for 3090 GPU, set to 6
+# default 15000
+num_points: 15000
+num_workers: 4
+
+# data augmentation
+x_angle_range: 0.0
+y_angle_range: 0.0
+z_angle_range: 3.1415926
+scale_low: 0.7
+scale_high: 1.3
+noise_std: 0.001
+noise_clip: 0.05
+translate_range: 0.0
+color_drop: 0.2
+augment_symmetries:
+  - 1
+  - 0
+  - 0
+  
+# ---------------------------------------------------------------------------- #
+# Model
+# ---------------------------------------------------------------------------- #
+backbone: 'resnet'
+head: 'resnet_scene_seg'
+radius: 0.1
+sampleDl: 0.04
+nsamples:
+  - 26
+  - 31
+  - 38
+  - 41
+  - 39
+npoints:
+  - 4096
+  - 1152
+  - 304
+  - 88
+width: 144
+depth: 2
+bottleneck_ratio: 2
+
+in_radius: 2.0
+num_steps: 2000
+
+# ---------------------------------------------------------------------------- #
+# Training options (Stage 1)
+# ---------------------------------------------------------------------------- #
+epochs: 600
+start_epoch: 1
+base_learning_rate: 0.01
+lr_scheduler: 'step'  # step,cosine
+optimizer: 'sgd'
+warmup_epoch:  -1
+lr_decay_steps: 1
+lr_decay_rate: 0.9885531
+weight_decay: 0.001
+momentum: 0.98
+
+# ---------------------------------------------------------------------------- #
+# Two-Stage Training options (FIXED CONFIGURATION)
+# ---------------------------------------------------------------------------- #
+# Stage 1: Representation Learning
+stage1_epochs: 80                   # Train full network end-to-end
+use_cb_loss_stage1: false           # Use standard CE loss for Stage 1
+                                     # Rationale: Let model learn from all data naturally
+
+# Stage 2: Classifier Re-training (CRITICAL FIXES APPLIED)
+stage2_epochs: 30                   # Extended from 20 to 30 epochs for more stable training
+stage2_lr: 0.00001                  # 🔧 FIX #2: Reduced from 0.0001 to 0.00001 (10x reduction!)
+                                     # This is 1/1000 of base_lr (0.01)
+                                     # Critical for preventing catastrophic forgetting
+
+stage2_warmup_epochs: 0              # 🔧 FIX #3: DISABLED warmup (was 10)
+                                     # Rationale: Warmup causes delayed forgetting
+                                     # With ultra-low LR (0.00001), warmup is unnecessary
+                                     # Model can adapt immediately without risk
+
+sampling_temperature: 2.0            # Conservative class-balanced sampling
+                                     # Temperature > 1.0 softens distribution
+                                     # Prevents over-emphasis on tail classes
+
+use_cb_loss_stage2: false            # 🔧 FIX #4: Use CE loss, not CB loss
+                                     # Rationale: Class-balanced sampler handles imbalance
+                                     # CB loss + CB sampler = redundant & unstable
+                                     # CE loss provides cleaner gradients
+
+freeze_encoder: true                 # Freeze backbone/encoder in Stage 2
+                                     # Only train decoder/segmentation_head
+
+# Stage 2 Regularization (NEW - prevent overfitting)
+stage2_weight_decay: 0.01            # 🔧 FIX #5: Strong L2 regularization (10x Stage 1)
+                                     # Prevents overfitting to resampled tail examples
+
+stage2_early_stop_patience: 10       # Stop if no improvement for 10 epochs
+                                     # Protects against degradation
+
+# ---------------------------------------------------------------------------- #
+# Class-Balanced Loss options (for Stage 1 if enabled)
+# ---------------------------------------------------------------------------- #
+use_cb_loss: false                   # Legacy flag (use stage-specific flags)
+cb_beta: 0.9999                      # Effective number hyperparameter
+cb_gamma: 3.0                        # Focal loss focusing parameter  
+cb_alpha: 2.0                        # Loss weighting factor
+
+# ---------------------------------------------------------------------------- #
+# io and misc
+# ---------------------------------------------------------------------------- #
+load_path: ''
+print_freq: 10
+save_freq: 10
+val_freq: 5                          # 🔧 Validate every 5 epochs (was 10)
+                                     # More frequent monitoring for Stage 2
+log_dir: './output'
+local_rank: 0
+amp_opt_level: ''
+rng_seed: 0
+
+# ---------------------------------------------------------------------------- #
+# Local Aggregation options
+# ---------------------------------------------------------------------------- #
+local_aggregation_type: 'respointnet2'
+respointnet2:
+  feature_type: 'dp_fi_df'
+  num_mlps: 1
+  reduction: 'max'
+

@@ -8,6 +8,8 @@ set -e # Exit immediately if a command exits with a non-zero status.
 # --- Configuration ---
 num_gpus=2
 dataset_name='psnet12'
+config_name="respointnet2_dp_fi_df_fc1_max_cb_loss_two_stage_ce_s2"
+log_root="log/${dataset_name}"
 master_port_train=12349
 
 # Stage 1 checkpoints for comparison
@@ -52,12 +54,24 @@ echo "🧪 TEST 2: CB Stage 1 (54.088%) → CE Stage 2 with Balanced Sampling"
 echo "===================================================================="
 echo "This tests whether CE loss in Stage 2 works well with strong Stage 1 features"
 echo ""
+
+# Create experiment directory with timestamp for Test 2
+timestamp=$(date +%Y%m%d%H%M%S)
+exp_dir_test2="${log_root}/${config_name}_cb_s1_ce_s2_${timestamp}"
+mkdir -p "${exp_dir_test2}/stage1"
+mkdir -p "${exp_dir_test2}/stage2"
+
+# Copy the CB pretrained checkpoint as stage1_best.pth
+echo "Copying CB pretrained checkpoint to stage1 directory..."
+cp "${cb_stage1_checkpoint}" "${exp_dir_test2}/stage1/stage1_best.pth"
+echo "Stage 1 checkpoint ready at: ${exp_dir_test2}/stage1/stage1_best.pth"
+
 time python -m torch.distributed.launch --master_port ${master_port_train} \
     --nproc_per_node ${num_gpus} \
     function/train_psnet_two_stage_dist.py \
     --dataset_name ${dataset_name} \
-    --cfg cfgs/${dataset_name}/respointnet2_dp_fi_df_fc1_max_cb_loss_two_stage_ce_s2.yaml \
-    --load_path "${cb_stage1_checkpoint}" \
+    --cfg cfgs/${dataset_name}/${config_name}.yaml \
+    --log_dir "${exp_dir_test2}" \
     --stage1_epochs ${stage1_epochs} \
     --stage2_epochs ${stage2_epochs} \
     --stage2_lr ${stage2_lr} \
@@ -66,6 +80,7 @@ time python -m torch.distributed.launch --master_port ${master_port_train} \
     --early_stopping_patience ${patience}
 
 echo "✅ Test 2 completed"
+echo "Results saved in: ${exp_dir_test2}"
 echo ""
 
 # Wait a moment
@@ -76,12 +91,24 @@ echo "🧪 TEST 3: CE Stage 1 (52.479%) → CE Stage 2 with Balanced Sampling"
 echo "===================================================================="
 echo "This tests whether CE loss throughout can compete with CB→CE approach"
 echo ""
+
+# Create experiment directory with timestamp for Test 3
+timestamp=$(date +%Y%m%d%H%M%S)
+exp_dir_test3="${log_root}/${config_name}_ce_s1_ce_s2_${timestamp}"
+mkdir -p "${exp_dir_test3}/stage1"
+mkdir -p "${exp_dir_test3}/stage2"
+
+# Copy the CE pretrained checkpoint as stage1_best.pth
+echo "Copying CE pretrained checkpoint to stage1 directory..."
+cp "${ce_stage1_checkpoint}" "${exp_dir_test3}/stage1/stage1_best.pth"
+echo "Stage 1 checkpoint ready at: ${exp_dir_test3}/stage1/stage1_best.pth"
+
 time python -m torch.distributed.launch --master_port $((master_port_train + 1)) \
     --nproc_per_node ${num_gpus} \
     function/train_psnet_two_stage_dist.py \
     --dataset_name ${dataset_name} \
-    --cfg cfgs/${dataset_name}/respointnet2_dp_fi_df_fc1_max_cb_loss_two_stage_ce_s2.yaml \
-    --load_path "${ce_stage1_checkpoint}" \
+    --cfg cfgs/${dataset_name}/${config_name}.yaml \
+    --log_dir "${exp_dir_test3}" \
     --stage1_epochs ${stage1_epochs} \
     --stage2_epochs ${stage2_epochs} \
     --stage2_lr ${stage2_lr} \
@@ -89,6 +116,7 @@ time python -m torch.distributed.launch --master_port $((master_port_train + 1))
     --early_stopping_patience ${patience}
 
 echo "✅ Test 3 completed"
+echo "Results saved in: ${exp_dir_test3}"
 echo ""
 
 echo "=================================================================="
@@ -96,10 +124,10 @@ echo "EXPERIMENT COMPLETED"
 echo "=================================================================="
 echo "Compare the results from both tests:"
 echo ""
-echo "Test 2 (CB S1 → CE S2): Check log directories with 'cb_loss_two_stage_ce_s2'"
+echo "Test 2 (CB S1 → CE S2): ${exp_dir_test2}"
 echo "                        Expected: ~54.1-54.5% (strong foundation + clean Stage 2)"
 echo ""
-echo "Test 3 (CE S1 → CE S2): Check log directories with 'cb_loss_two_stage_ce_s2'"  
+echo "Test 3 (CE S1 → CE S2): ${exp_dir_test3}"  
 echo "                        Expected: ~52.5-53.0% (weaker foundation but consistent)"
 echo ""
 echo "Key Questions:"

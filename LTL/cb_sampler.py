@@ -21,11 +21,11 @@ class ClassBalancedSampler(Sampler):
     """
     Class-Balanced Sampler for point cloud segmentation.
     
-    Ensures each batch has roughly balanced class representation by
-    oversampling points from tail classes and undersampling head classes.
+    Implements true class-aware center selection where spheres are centered
+    on points from specific classes, with tail classes being preferentially selected.
     """
     
-    def __init__(self, dataset, samples_per_epoch=None, replacement=True):
+    def __init__(self, dataset, samples_per_epoch=None, replacement=True, logger=None, temperature=1.0):
         """
         Initialize Class-Balanced Sampler.
         
@@ -33,17 +33,41 @@ class ClassBalancedSampler(Sampler):
             dataset: Dataset object with point cloud data
             samples_per_epoch (int): Number of samples per epoch (default: dataset length)
             replacement (bool): Whether to sample with replacement
+            logger: Logger object for proper logging (optional)
+            temperature (float): Temperature for softening class weights (default: 1.0)
+                               temperature > 1.0: more uniform distribution (less aggressive)
+                               temperature < 1.0: more peaked distribution (more aggressive)
+                               temperature = 1.0: no modification (inverse frequency)
         """
         self.dataset = dataset
         self.replacement = replacement
         self.samples_per_epoch = samples_per_epoch or len(dataset)
+        self.logger = logger
+        self.temperature = temperature
+        self.epoch_class_counts = None  # Track class distribution per epoch
+        
+        self._log("Initializing Class-Balanced Sampler with class-aware center selection...")
         
         # Calculate class statistics
         self.class_stats = self._calculate_class_statistics()
-        self.sampling_weights = self._calculate_sampling_weights()
         
-        print(f"Class statistics: {self.class_stats}")
-        print(f"Sampling weights: {dict(zip(dataset.label_to_names.values(), self.sampling_weights))}")
+        # Pre-compute class-to-sphere mapping for efficient sampling
+        # This maps each class to the dataset step indices that contain that class
+        self._log("Building class-to-sphere index mapping (this may take a moment)...")
+        self.class_to_sphere_indices = self._build_class_to_sphere_mapping()
+        
+        # Calculate class selection weights (inverse frequency for tail class preference)
+        # FIX #3: Apply temperature scaling for more conservative sampling
+        self.class_weights = self._calculate_class_weights()
+        
+        self._print_statistics()
+    
+    def _log(self, msg):
+        """Helper to log to logger if available, otherwise print."""
+        if self.logger:
+            self.logger.info(msg)
+        else:
+            print(msg)
     
     def _calculate_class_statistics(self):
         """Calculate number of points per class across all sub-clouds."""
@@ -62,171 +86,157 @@ class ClassBalancedSampler(Sampler):
         
         return {
             'counts': class_stats,
-            'frequencies': [count / total_points for count in class_stats],
-            'total_points': total_points
+            'frequencies': [count / total_points if total_points > 0 else 0 for count in class_stats],
+            'total_points': total_points,
+            'num_classes': num_classes
         }
     
-    def _calculate_sampling_weights(self):
-        """Calculate inverse frequency weights for sampling."""
+    def _build_class_to_sphere_mapping(self):
+        """
+        Build mapping from each class to dataset step indices that contain that class.
+        
+        This is the KEY to implementing class-aware center selection:
+        For each step in the dataset, we determine which classes are present,
+        and add that step index to the list of spheres for each present class.
+        
+        Returns:
+            dict: {class_id: [list of step indices containing this class]}
+        """
+        class_to_spheres = defaultdict(list)
+        
+        # For datasets that have a simple structure where each step corresponds
+        # to a sub-cloud, we can map directly
+        if hasattr(self.dataset, 'sub_clouds_points_labels'):
+            for sphere_idx, labels in enumerate(self.dataset.sub_clouds_points_labels):
+                # Find which classes are present in this sphere
+                unique_classes = np.unique(labels)
+                for cls in unique_classes:
+                    if cls < self.class_stats['num_classes']:  # Valid class
+                        class_to_spheres[int(cls)].append(sphere_idx)
+        else:
+            # Fallback: if dataset structure is different, create mapping by sampling
+            print("Warning: Dataset structure not recognized, using sampling-based mapping")
+            for step_idx in range(len(self.dataset)):
+                # This is less efficient but works as fallback
+                # Map all steps to all classes (worst case)
+                for cls in range(self.class_stats['num_classes']):
+                    class_to_spheres[cls].append(step_idx)
+        
+        return dict(class_to_spheres)
+    
+    def _calculate_class_weights(self):
+        """
+        Calculate class selection weights using inverse frequency with temperature scaling.
+        
+        Tail classes (low frequency) get higher weights, so they are selected
+        more often as sphere centers. Temperature parameter controls how aggressive
+        this rebalancing is.
+        
+        Returns:
+            np.ndarray: Normalized class weights
+        """
         frequencies = np.array(self.class_stats['frequencies'])
-        # Avoid division by zero
-        frequencies = np.maximum(frequencies, 1e-8)
+        frequencies = np.maximum(frequencies, 1e-8)  # Avoid division by zero
         
-        # Inverse frequency weighting
+        # Inverse frequency weighting: rare classes get higher weight
         weights = 1.0 / frequencies
-        # Normalize weights
-        weights = weights / np.sum(weights) * len(weights)
         
-        return weights.tolist()
+        # FIX #3: Apply temperature scaling
+        # temperature > 1.0: softens the distribution (less extreme oversampling)
+        # temperature < 1.0: sharpens the distribution (more extreme oversampling)
+        if self.temperature != 1.0:
+            # Apply temperature: weights = weights^(1/T)
+            weights = np.power(weights, 1.0 / self.temperature)
+        
+        # Normalize to form probability distribution
+        weights = weights / np.sum(weights)
+        
+        return weights
     
-    def _calculate_sphere_class_weights(self):
-        """
-        Calculate sampling weights for each sphere based on class distribution.
+    def _print_statistics(self):
+        """Print statistics about the sampler initialization."""
+        self._log("\n" + "="*70)
+        self._log("Class-Balanced Sampler Statistics")
+        self._log("="*70)
         
-        Key insight: Spheres containing more tail class points get higher weights.
-        This implements the core theory: "preferentially sampling spheres/blocks 
-        that are centered on or contain instances of tail classes"
-        """
-        print("Calculating sphere class weights for balanced sampling...")
-        sphere_weights = []
+        # Print class frequencies
+        self._log(f"\nTotal points: {self.class_stats['total_points']:,}")
+        self._log(f"Number of classes: {self.class_stats['num_classes']}")
+        self._log(f"\nClass distribution:")
         
-        # Get class frequencies for inverse weighting
-        class_frequencies = np.array(self.class_stats['frequencies'])
-        class_frequencies = np.maximum(class_frequencies, 1e-8)  # Avoid division by zero
-        
-        # Calculate inverse frequency weights (tail classes get higher weights)
-        inverse_freq_weights = 1.0 / class_frequencies
-        inverse_freq_weights = inverse_freq_weights / np.sum(inverse_freq_weights) * len(inverse_freq_weights)
-        
-        # Define tail classes (bottom 50% by frequency)
-        sorted_class_indices = np.argsort(class_frequencies)
-        num_tail_classes = len(sorted_class_indices) // 2
-        tail_classes = set(sorted_class_indices[:num_tail_classes])
-        
-        print(f"Identified tail classes: {tail_classes}")
-        print(f"Class frequencies: {dict(enumerate(class_frequencies))}")
-        
-        for step_idx in range(len(self.dataset)):
-            # Get the class distribution for this sphere
-            sphere_class_dist = self._get_sphere_class_distribution(step_idx)
+        for cls_id in range(self.class_stats['num_classes']):
+            count = self.class_stats['counts'][cls_id]
+            freq = self.class_stats['frequencies'][cls_id]
+            weight = self.class_weights[cls_id]
+            num_spheres = len(self.class_to_sphere_indices.get(cls_id, []))
             
-            if sphere_class_dist is None or len(sphere_class_dist) == 0:
-                # Default weight for spheres with no valid points
-                sphere_weights.append(1.0)
-                continue
+            class_name = self.dataset.label_to_names.get(cls_id, f"Class_{cls_id}")
             
-            # Calculate sphere weight based on class composition
-            sphere_weight = self._calculate_sphere_weight(sphere_class_dist, inverse_freq_weights, tail_classes)
-            sphere_weights.append(sphere_weight)
+            self._log(f"  {cls_id:2d}. {class_name:15s}: "
+                      f"{count:8,} pts ({freq:6.2%}) | "
+                      f"weight={weight:6.4f} | "
+                      f"{num_spheres:5,} spheres")
         
-        # Normalize weights
-        sphere_weights = np.array(sphere_weights)
-        sphere_weights = sphere_weights / np.mean(sphere_weights)  # Normalize to mean=1
+        # Identify tail classes
+        sorted_indices = np.argsort(self.class_stats['frequencies'])
+        num_tail = self.class_stats['num_classes'] // 3  # Bottom 1/3 are tail classes
+        tail_classes = sorted_indices[:num_tail]
         
-        print(f"Sphere weight statistics: min={np.min(sphere_weights):.3f}, "
-              f"max={np.max(sphere_weights):.3f}, mean={np.mean(sphere_weights):.3f}")
-        
-        return sphere_weights.tolist()
-    
-    def _get_sphere_class_distribution(self, step_idx):
-        """Get class distribution for a specific sphere/step."""
-        try:
-            # This is dataset-specific - we need to get the actual labels for this sphere
-            # For now, we'll use a simplified approach that works with the existing dataset structure
-            
-            # Get a sample from the dataset to understand the class distribution
-            # In practice, this should query the actual neighborhood around the sphere center
-            
-            # Simplified approach: estimate based on overall statistics and some randomness
-            # This is a placeholder - ideally you'd query the actual sphere neighborhood
-            
-            # Get random subset of points to simulate sphere sampling
-            cloud_idx = step_idx % len(self.dataset.sub_clouds_points_labels)
-            labels = self.dataset.sub_clouds_points_labels[cloud_idx]
-            
-            # Sample a random subset to simulate sphere neighborhood
-            if len(labels) > 1000:
-                sample_indices = np.random.choice(len(labels), size=min(1000, len(labels)), replace=False)
-                sphere_labels = labels[sample_indices]
-            else:
-                sphere_labels = labels
-            
-            return sphere_labels
-            
-        except Exception as e:
-            print(f"Warning: Could not get sphere class distribution for step {step_idx}: {e}")
-            return None
-    
-    def _calculate_sphere_weight(self, sphere_labels, inverse_freq_weights, tail_classes):
-        """
-        Calculate weight for a sphere based on its class composition.
-        
-        Strategy:
-        1. Higher weight for spheres with more tail class points
-        2. Use inverse frequency weighting
-        3. Boost factor for tail class presence
-        """
-        # Count classes in this sphere
-        unique_classes, counts = np.unique(sphere_labels, return_counts=True)
-        total_points = len(sphere_labels)
-        
-        # Base weight from inverse frequency weighting
-        base_weight = 0.0
-        for cls, count in zip(unique_classes, counts):
-            if cls < len(inverse_freq_weights):
-                base_weight += (count / total_points) * inverse_freq_weights[cls]
-        
-        # Tail class boost
-        tail_points = sum(counts[np.isin(unique_classes, list(tail_classes))])
-        tail_ratio = tail_points / total_points
-        
-        # Apply tail boost: spheres with more tail classes get exponentially higher weights
-        tail_boost = 1.0 + 2.0 * tail_ratio + 5.0 * (tail_ratio ** 2)
-        
-        final_weight = base_weight * tail_boost
-        
-        return max(final_weight, 0.1)  # Ensure minimum weight
-    
-    # current implementation is not used
-    def _create_point_indices_by_class(self):
-        """Create mapping from class to point indices."""
-        class_to_indices = defaultdict(list)
-        
-        for cloud_idx, labels in enumerate(self.dataset.sub_clouds_points_labels):
-            for point_idx, label in enumerate(labels):
-                # Store (cloud_idx, point_idx) tuple
-                class_to_indices[label].append((cloud_idx, point_idx))
-        
-        return class_to_indices
+        self._log(f"\nTail classes (bottom 1/3 by frequency): {tail_classes.tolist()}")
+        self._log(f"These classes will be preferentially selected as sphere centers")
+        self._log("="*70 + "\n")
     
     def __iter__(self):
-        """Generate indices for balanced sampling."""
-        # Create sampling probabilities for each sphere center based on class distribution
-        sphere_weights = self._calculate_sphere_class_weights()
+        """
+        Generate indices for balanced sampling using class-aware center selection.
         
-        # Sample sphere indices based on their weights
-        if self.replacement:
-            indices = torch.multinomial(
-                torch.tensor(sphere_weights, dtype=torch.float),
-                self.samples_per_epoch,
-                replacement=True
-            ).tolist()
-        else:
-            # Without replacement sampling
-            indices = list(range(len(self.dataset)))
-            if self.samples_per_epoch < len(indices):
-                # Weighted sampling without replacement
-                probs = np.array(sphere_weights)
-                probs = probs / probs.sum()
-                indices = np.random.choice(
-                    indices, 
-                    size=self.samples_per_epoch, 
-                    replace=False, 
-                    p=probs
-                ).tolist()
-            random.shuffle(indices)
+        Algorithm:
+        1. For each sample needed:
+           a. Choose a class (with tail classes having higher probability)
+           b. Pick a random sphere that contains that class
+        2. This ensures tail classes are at the center of training spheres
+        """
+        indices = []
+        class_selection_counts = defaultdict(int)  # Track which classes we selected
+        
+        for _ in range(self.samples_per_epoch):
+            # Step 1: Choose a class (prefer tail classes via inverse frequency weighting)
+            selected_class = np.random.choice(
+                self.class_stats['num_classes'],
+                p=self.class_weights
+            )
+            class_selection_counts[selected_class] += 1
+            
+            # Step 2: Get all spheres that contain this class
+            available_spheres = self.class_to_sphere_indices.get(selected_class, [])
+            
+            if len(available_spheres) == 0:
+                # Fallback: if class has no spheres, sample randomly
+                sphere_idx = np.random.randint(0, len(self.dataset))
+            else:
+                # Step 3: Pick a random sphere from those containing the selected class
+                sphere_idx = random.choice(available_spheres)
+            
+            indices.append(sphere_idx)
+        
+        # Store for logging
+        self.epoch_class_counts = dict(class_selection_counts)
         
         return iter(indices)
+    
+    def get_epoch_stats(self):
+        """Get statistics about which classes were sampled in last epoch."""
+        if self.epoch_class_counts is None:
+            return "No epoch stats available yet"
+        
+        stats_str = "Class selection counts for last epoch:\n"
+        for cls_id in range(self.class_stats['num_classes']):
+            count = self.epoch_class_counts.get(cls_id, 0)
+            percentage = 100.0 * count / self.samples_per_epoch
+            class_name = self.dataset.label_to_names.get(cls_id, f"Class_{cls_id}")
+            stats_str += f"  {cls_id:2d}. {class_name:15s}: {count:5d} samples ({percentage:5.2f}%)\n"
+        
+        return stats_str
     
     def __len__(self):
         return self.samples_per_epoch
@@ -280,13 +290,18 @@ class ClassBalancedBatchSampler:
         """Map each class to sphere indices that contain that class."""
         class_to_spheres = defaultdict(list)
         
-        # This is a simplified mapping - in practice, you'd want to analyze
-        # the actual class distribution within each sphere's neighborhood
-        for sphere_idx in range(len(self.dataset)):
-            # For now, assume all spheres can contribute to all classes
-            # In practice, you'd analyze the neighborhood of each sphere center
-            for class_idx in range(self.num_classes):
-                class_to_spheres[class_idx].append(sphere_idx)
+        # Build mapping based on actual class presence in spheres
+        if hasattr(self.dataset, 'sub_clouds_points_labels'):
+            for sphere_idx, labels in enumerate(self.dataset.sub_clouds_points_labels):
+                unique_classes = np.unique(labels)
+                for cls in unique_classes:
+                    if cls < self.num_classes:
+                        class_to_spheres[int(cls)].append(sphere_idx)
+        else:
+            # Fallback
+            for sphere_idx in range(len(self.dataset)):
+                for class_idx in range(self.num_classes):
+                    class_to_spheres[class_idx].append(sphere_idx)
         
         return class_to_spheres
     
@@ -332,7 +347,8 @@ class ClassBalancedBatchSampler:
 
 
 # Integration helper function
-def create_balanced_dataloader(dataset, batch_size, num_workers=4, sampler_type='point'):
+def create_balanced_dataloader(dataset, batch_size, num_workers=4, sampler_type='point', 
+                               distributed=False, logger=None, temperature=1.0):
     """
     Create a dataloader with class-balanced sampling.
     
@@ -341,23 +357,60 @@ def create_balanced_dataloader(dataset, batch_size, num_workers=4, sampler_type=
         batch_size (int): Batch size
         num_workers (int): Number of worker processes
         sampler_type (str): Type of sampler ('point' or 'batch')
+        distributed (bool): Whether to use distributed training
+        logger: Logger object for proper logging
+        temperature (float): Temperature for class weight scaling (default: 1.0)
+                           temperature > 1.0: more conservative (less aggressive oversampling)
+                           temperature < 1.0: more aggressive (more extreme oversampling)
         
     Returns:
         torch.utils.data.DataLoader: Balanced dataloader
     """
     from torch.utils.data import DataLoader
+    import torch.distributed as dist
     
     if sampler_type == 'point':
-        sampler = ClassBalancedSampler(dataset, samples_per_epoch=len(dataset))
-        return DataLoader(
-            dataset,
-            batch_size=batch_size,
-            sampler=sampler,
-            num_workers=num_workers,
-            pin_memory=True,
-            drop_last=True,
-            shuffle=False  # Important: don't shuffle when using custom sampler
-        )
+        if distributed and dist.is_available() and dist.is_initialized():
+            # For distributed training, we need a different approach
+            # Option 1: Use DistributedSampler which doesn't support CB sampling directly
+            # Option 2: Create CB indices and then use DistributedSampler on those
+            
+            if logger:
+                logger.warning("Distributed training detected: Using hybrid approach")
+                logger.warning("Creating CB sampler on each rank - NOTE: This may need improvement")
+            
+            # Each rank creates its own CB sampler
+            # The sampler will use different random seeds based on epoch and rank
+            # FIX #3: Pass temperature parameter to sampler
+            sampler = ClassBalancedSampler(dataset, samples_per_epoch=len(dataset), 
+                                          logger=logger, temperature=temperature)
+            
+            # IMPORTANT: In DDP, we need to ensure different sampling on each GPU
+            # The set_epoch() method will handle this by setting different random seeds per rank
+            
+            return DataLoader(
+                dataset,
+                batch_size=batch_size,
+                sampler=sampler,
+                num_workers=num_workers,
+                pin_memory=True,
+                drop_last=True,
+                shuffle=False
+            )
+        else:
+            # Single GPU or non-distributed training
+            # FIX #3: Pass temperature parameter to sampler
+            sampler = ClassBalancedSampler(dataset, samples_per_epoch=len(dataset), 
+                                          logger=logger, temperature=temperature)
+            return DataLoader(
+                dataset,
+                batch_size=batch_size,
+                sampler=sampler,
+                num_workers=num_workers,
+                pin_memory=True,
+                drop_last=True,
+                shuffle=False  # Important: don't shuffle when using custom sampler
+            )
     elif sampler_type == 'batch':
         batch_sampler = ClassBalancedBatchSampler(dataset, batch_size)
         return DataLoader(

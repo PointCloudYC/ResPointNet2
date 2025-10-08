@@ -20,6 +20,7 @@ The best miou is 54.088% @epoch 212, detailed results are as follows:
 ### stage 2
 
 The best miou is 54.253% @stage 2 E4, detailed results are as follows:
+**Even using the CE loss w. LR 0.0001, the best mIoU is 54.253% @stage 2 E4**
 
 ```
 [09/27 13:36:26] psnet12_two_stage INFO: ES2-E4 V1 * mIoU 54.253%
@@ -77,6 +78,7 @@ The best miou is 52.479% @epoch 165, detailed results are as follows:
 ### stage 2
 
 The best miou is 52.479% @epoch 165, detailed results are as follows:
+**Even using the CE loss w. LR 0.0001, the best mIoU is 52.474% @stage 2 E1**
 
 ```
 # another epoch w. strong CB loss @ stage lr 0.0001
@@ -85,6 +87,11 @@ The best miou is 52.479% @epoch 165, detailed results are as follows:
  0.94609958 0.         0.         0.98865832 0.02725613 0.41373311]
 [09/28 18:27:10] psnet12_two_stage INFO: Checkpoint saved: log/psnet12/respointnet2_dp_fi_df_fc1_max_cb_loss_two_stage_pretrained_20250928181458/stage2/stage2_best.pth
 
+# another epoch w. CE loss @ stage lr 0.0001
+[09/30 13:40:31] psnet12_two_stage INFO: ES2-E1 V1 * mIoU 52.474%
+[09/30 13:40:31] psnet12_two_stage INFO: ES2-E1 V1  * msIoU [0.90431584 0.41097638 0.46659327 0.97553431 0.75446624 0.40926726
+ 0.94609958 0.         0.         0.98865832 0.02725613 0.41373671]
+[09/30 13:40:31] psnet12_two_stage INFO: Checkpoint saved: log/psnet12/respointnet2_dp_fi_df_fc1_max_cb_loss_two_stage_ce_s2_ce_s1_ce_s2_20250930132804/stage2/stage2_best.pth
 
 # another epoch w. strong CB loss @ stage lr 0.0005
 [09/29 19:49:21] psnet12_two_stage INFO: ES2-E9 V1 * mIoU 51.906%
