@@ -31,7 +31,7 @@ NUM_GPUS=2
 DATASET_NAME='psnet12'
 LOG_ROOT="log/${DATASET_NAME}"
 BASE_PORT=12350  # Starting port, will increment for each experiment
-EARLY_STOPPING_PATIENCE=20
+EARLY_STOPPING_PATIENCE=50
 
 # Color codes for pretty printing
 RED='\033[0;31m'

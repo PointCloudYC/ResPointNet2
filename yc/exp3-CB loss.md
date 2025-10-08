@@ -12,7 +12,9 @@ The **strong CB loss configuration (γ=3.0, α=2.0)** is the clear winner, provi
 
 - **Baseline**: 48.154% mIoU @ epoch 111
 - **Plain CB loss**: 40.047% mIoU @ epoch 36 (regression)
+- **Plain ld CB loss**: 40.047% mIoU @ epoch 36 (regression)
 - **Strong CB loss**: 54.088% mIoU @ epoch 212 (improvement)
+- **GC CB loss**: 50.072% mIoU @ epoch 119 (improvement)
 
 ## Comparison Table
 
@@ -51,6 +53,30 @@ The **strong CB loss configuration (γ=3.0, α=2.0)** is the clear winner, provi
 [09/20 07:15:07] psnet12 INFO: Saved best model in log/psnet12/respointnet2_dp_fi_df_fc1_max_20250919163927/best.pth
 ```
 
+## training gc CB loss(beta=0.9999, gamma=2.0, alpha=1.0, gc_context_k=16, gc_context_weight=1.0, gc_entropy_temp=1.0)
+
+- results: mIoU 53.890% @epoch 237 w. early stopping patience 20, detailed results are as follows, and the best model is saved in `log/best.pth`
+
+```
+[10/08 02:15:56] psnet12 INFO: E237 V1 * mIoU 53.890%
+[10/08 02:15:56] psnet12 INFO: E237 V1  * msIoU [0.9137756  0.40250768 0.52363374 0.99273082 0.79970405 0.40964745
+ 0.95042784 0.06727462 0.         0.96933859 0.02009707 0.41766323]
+[10/08 02:15:56] psnet12 INFO: New best mIoU: 53.890%
+[10/08 02:15:56] psnet12 INFO: ==> Saving...
+[10/08 02:15:58] psnet12 INFO: Saved best model in log/best.pth
+```
+
+- results: mIoU 44.310% @epoch 64 w. early stopping patience 20, detailed results are as follows, and the best model is saved in `log/psnet12/respointnet2_dp_fi_df_fc1_max_gc_cb_loss_20251003071346/best.pth`
+
+```
+[10/03 20:01:52] psnet12 INFO: E64 V1 * mIoU 44.310%
+[10/03 20:01:52] psnet12 INFO: E64 V1  * msIoU [0.88688484 0.22666305 0.2843295  0.9357945  0.71180384 0.29319077
+ 0.9321366  0.         0.         0.95914348 0.         0.08727987]
+[10/03 20:01:52] psnet12 INFO: New best mIoU: 44.310%
+[10/03 20:01:52] psnet12 INFO: ==> Saving...
+[10/03 20:01:54] psnet12 INFO: Saved best model in log/psnet12/respointnet2_dp_fi_df_fc1_max_gc_cb_loss_20251003071346/best.pth
+```
+
 ## training plain CB loss(beta=0.9999, gamma=2.0, alpha=1.0)
 
 - results: mIoU 40.047% @epoch 36 w. early stopping patience 20, detailed results are as follows, and the best model is saved in `log/psnet12/respointnet2_dp_fi_df_fc1_max_cb_loss_20250921214715/best.pth`
@@ -63,6 +89,26 @@ The **strong CB loss configuration (γ=3.0, α=2.0)** is the clear winner, provi
 [09/21 17:13:18] psnet12 INFO: New best mIoU: 40.047%
 ```
 
+## training plain ld CB loss(beta=0.9999, gamma=2.0, alpha=1.0, ld_density_weight=0.2)
+
+- results: mIoU 53.345% @epoch 205 w. early stopping patience 20, detailed results are as follows, and the best model is saved in `log/best.pth`
+
+```
+[10/06 08:21:27] psnet12 INFO: E205 V1  * msIoU [0.90821874 0.46571742 0.47976127 0.98715108 0.78935835 0.4058866
+ 0.95142276 0.02013146 0.         0.9048003  0.10293342 0.38600376]
+[10/06 08:21:27] psnet12 INFO: New best mIoU: 53.345%
+[10/06 08:21:27] psnet12 INFO: ==> Saving...
+[10/06 08:21:29] psnet12 INFO: Saved best model in log/best.pth
+```
+
+- results: mIoU 46.013% @epoch 51 w. early stopping patience 20, detailed results are as follows, and the best model is saved in `log/psnet12/respointnet2_dp_fi_df_fc1_max_cb_loss_ld_20251002190140/best.pth`
+
+```
+[10/02 18:59:42] psnet12 INFO: E51 V1 * mIoU 46.013%
+[10/02 18:59:42] psnet12 INFO: E51 V1  * msIoU [0.88462343 0.155897   0.27903306 0.94516686 0.73443246 0.42575898
+ 0.93596155 0.         0.         0.92538373 0.         0.23528487]
+[10/02 18:59:42] psnet12 INFO: New best mIoU: 46.013%
+```
 
 ## training strong CB loss(beta=0.9999, gamma=3.0, alpha=2.0)
 

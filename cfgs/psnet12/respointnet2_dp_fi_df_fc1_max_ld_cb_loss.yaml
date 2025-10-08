@@ -66,8 +66,9 @@ momentum: 0.98
 # ---------------------------------------------------------------------------- #
 cb_loss_type: 'ld'         # Use Local Density-Aware CB Loss
 cb_beta: 0.9999            # Effective number hyperparameter
-cb_gamma: 2.0              # Focal loss focusing parameter
-cb_alpha: 1.0              # Loss weighting factor
+cb_gamma: 3.0              # Focal loss focusing parameter
+cb_alpha: 2.0              # Loss weighting factor
+
 
 # LD-CB specific parameters
 ld_density_radius: 0.5     # Radius for local density calculation (meters)

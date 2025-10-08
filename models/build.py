@@ -11,10 +11,10 @@ except:
     from heads import ClassifierResNet, SceneSegHeadResNet, SqnHeadResNet
 try:
     from .losses import (LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, 
-                         create_cb_loss, create_ld_cb_loss, create_gc_cb_loss)
+                         create_cb_loss, create_ld_cb_loss, create_gc_cb_loss, create_combined_cb_loss)
 except:
     from losses import (LabelSmoothingCrossEntropyLoss, MultiShapeCrossEntropy, MaskedCrossEntropy, 
-                        create_cb_loss, create_ld_cb_loss, create_gc_cb_loss)
+                        create_cb_loss, create_ld_cb_loss, create_gc_cb_loss, create_combined_cb_loss)
 
 
 def build_scene_segmentation(config):
@@ -119,6 +119,47 @@ def build_scene_segmentation_with_gc_cb_loss(config, dataset):
     criterion = create_gc_cb_loss(
         dataset, config.num_classes,
         beta=beta, gamma=gamma, alpha=alpha,
+        context_k=context_k,
+        context_weight=context_weight,
+        entropy_temp=entropy_temp
+    )
+    return model, criterion
+
+def build_scene_segmentation_with_combined_cb_loss(config, dataset):
+    """create a semantic segmentation model and the combined (LD+GC) CB loss
+
+    Args:
+        config (dict): the config object
+        dataset: training dataset for calculating class statistics
+
+    Returns:
+        tuple: the model and the combined loss
+    """
+
+    model = SceneSegmentationModel(config, config.backbone, config.head, config.num_classes,
+                                   config.input_features_dim,
+                                   config.radius, config.sampleDl, config.nsamples, config.npoints,
+                                   config.width, config.depth, config.bottleneck_ratio)
+    
+    # Common CB parameters
+    beta = getattr(config, 'cb_beta', 0.9999)
+    gamma = getattr(config, 'cb_gamma', 2.0) 
+    alpha = getattr(config, 'cb_alpha', 1.0)
+    
+    # LD-CB parameters
+    density_radius = getattr(config, 'ld_density_radius', 0.5)
+    density_weight = getattr(config, 'ld_density_weight', 1.0)
+
+    # GC-CB parameters
+    context_k = getattr(config, 'gc_context_k', 16)
+    context_weight = getattr(config, 'gc_context_weight', 1.0)
+    entropy_temp = getattr(config, 'gc_entropy_temp', 1.0)
+    
+    criterion = create_combined_cb_loss(
+        dataset, config.num_classes,
+        beta=beta, gamma=gamma, alpha=alpha,
+        density_radius=density_radius, 
+        density_weight=density_weight,
         context_k=context_k,
         context_weight=context_weight,
         entropy_temp=entropy_temp

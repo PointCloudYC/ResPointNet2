@@ -24,7 +24,8 @@ from torch.nn.parallel import DistributedDataParallel
 import datasets.data_utils as d_utils
 from models import (build_scene_segmentation, build_scene_segmentation_with_cb_loss,
                    build_scene_segmentation_with_ld_cb_loss, 
-                   build_scene_segmentation_with_gc_cb_loss) # models/build.py
+                   build_scene_segmentation_with_gc_cb_loss,
+                   build_scene_segmentation_with_combined_cb_loss) # models/build.py
 from datasets import PSNet5Seg, PSNet12Seg
 from utils.util import AverageMeter, seg_metrics, sub_seg_metrics, seg_part_metrics
 from utils.lr_scheduler import get_scheduler
@@ -57,8 +58,8 @@ def parse_option():
 
     # CB loss parameters
     parser.add_argument('--cb_loss_type', type=str, default='standard', 
-                       choices=['none', 'standard', 'ld', 'gc'],
-                       help='CB loss variant: none (standard CE), standard (CB), ld (Local Density), gc (Geometric Context)')
+                       choices=['none', 'standard', 'ld', 'gc', 'combined'],
+                       help='CB loss variant: none (standard CE), standard (CB), ld (Local Density), gc (Geometric Context), combined (LD+GC)')
     parser.add_argument('--cb_beta', type=float, default=0.9999, help='CB loss beta parameter')
     parser.add_argument('--cb_gamma', type=float, default=2.0, help='CB loss gamma (focal) parameter')
     parser.add_argument('--cb_alpha', type=float, default=1.0, help='CB loss alpha (weighting) parameter')
@@ -258,6 +259,9 @@ def main(config):
     elif cb_loss_type == 'gc':
         logger.info("Using Geometric Context-Aware Class-Balanced Loss")
         model, criterion = build_scene_segmentation_with_gc_cb_loss(config, train_loader.dataset)
+    elif cb_loss_type == 'combined':
+        logger.info("Using Combined Local Density and Geometric Context-Aware Class-Balanced Loss")
+        model, criterion = build_scene_segmentation_with_combined_cb_loss(config, train_loader.dataset)
     elif cb_loss_type == 'standard':
         logger.info("Using Standard Class-Balanced Loss")
         model, criterion = build_scene_segmentation_with_cb_loss(config, train_loader.dataset)
@@ -390,8 +394,8 @@ def train(epoch, train_loader, model, criterion, optimizer, scheduler, config):
 
         pred = model(points, mask, features)
         
-        # GC-CB loss requires points for neighborhood computation
-        if hasattr(criterion, '__class__') and 'GeometricContext' in criterion.__class__.__name__:
+        # GC-CB and Combined loss requires points for neighborhood computation
+        if hasattr(criterion, '__class__') and ('GeometricContext' in criterion.__class__.__name__ or 'Combined' in criterion.__class__.__name__):
             loss = criterion(pred, points_labels, mask, points)
         else:
             loss = criterion(pred, points_labels, mask)
@@ -501,8 +505,8 @@ def validate(epoch, test_loader, model, criterion, runing_vote_logits, config, n
 
                 pred = model(points, mask, features)
                 
-                # GC-CB loss requires points for neighborhood computation
-                if hasattr(criterion, '__class__') and 'GeometricContext' in criterion.__class__.__name__:
+                # GC-CB and Combined loss requires points for neighborhood computation
+                if hasattr(criterion, '__class__') and ('GeometricContext' in criterion.__class__.__name__ or 'Combined' in criterion.__class__.__name__):
                     loss = criterion(pred, points_labels, mask, points)
                 else:
                     loss = criterion(pred, points_labels, mask)
