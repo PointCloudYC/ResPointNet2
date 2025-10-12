@@ -10,10 +10,11 @@ conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cud
 
 conda install -c conda-forge opencv -y
 conda install -c anaconda pillow -y
-pip3 install termcolor tensorboard h5py easydict scikit-learn
 # install open3d and plyfile for visualization
-conda install -c open3d-admin open3d
-conda install -c conda-forge plyfile
+conda install -c open3d-admin open3d -y
+conda install -c conda-forge plyfile -y
+conda install -c conda-forge  termcolor tensorboard h5py easydict scikit-learn -y
+# pip3 install termcolor tensorboard h5py easydict scikit-learn
 
 
 # install custom operators
