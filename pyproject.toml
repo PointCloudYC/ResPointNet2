@@ -1,7 +1,0 @@
-[project]
-name = "respointnet2"
-version = "0.1.0"
-description = "MEP 3D scene semantic segmentation using ResPointNet++"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = []

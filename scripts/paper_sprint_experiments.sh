@@ -107,6 +107,27 @@ run_experiment() {
     
     local start_time=$(date +%s)
     
+    # Construct train command arguments
+    local train_cmd_args=(
+        --master_port ${port}
+        --nproc_per_node ${NUM_GPUS}
+        function/train_psnet_dist.py
+        --dataset_name ${DATASET_NAME}
+        --cfg "cfgs/${DATASET_NAME}/${config_file}"
+        --early_stopping_patience ${EARLY_STOPPING_PATIENCE}
+        --log_dir "${log_dir}"
+    )
+    
+    # Conditionally add --load_path if checkpoint_path is provided
+    if [ -n "$checkpoint_path" ]; then
+        train_cmd_args+=(--load_path "${checkpoint_path}")
+    fi
+    
+    # Add any extra arguments
+    if [ -n "$extra_args" ]; then
+        train_cmd_args+=($extra_args)
+    fi
+    
     # Ensure we're in the project root directory
     cd /media/yinchao/code/ResPointNet2
     
@@ -121,15 +142,7 @@ run_experiment() {
     fi
     
     # Run training using torchrun
-    torchrun --master_port ${port} \
-        --nproc_per_node ${NUM_GPUS} \
-        function/train_psnet_dist.py \
-        --dataset_name ${DATASET_NAME} \
-        --cfg cfgs/${DATASET_NAME}/${config_file} \
-        --early_stopping_patience ${EARLY_STOPPING_PATIENCE} \
-        --load_path ${checkpoint_path} \
-        --log_dir ${log_dir} \
-        ${extra_args} 2>&1 | tee "experiment_logs/paper_sprint_exp${exp_id}_${exp_name}.log"
+    torchrun "${train_cmd_args[@]}" 2>&1 | tee "experiment_logs/paper_sprint_exp${exp_id}_${exp_name}.log"
     
     local end_time=$(date +%s)
     local duration=$((end_time - start_time))
@@ -168,7 +181,7 @@ exp2_gc_cb() {
 }
 
 # Experiment 3: Combined LD-CB and GC-CB Loss
-# Start from GC-CB checkpoint (better performance: 44.31% vs 42.77%)
+# Training from scratch.
 # Writes to a new log directory.
 exp3_combined_loss() {
     local timestamp=$(date '+%Y%m%d%H%M%S')
@@ -176,12 +189,12 @@ exp3_combined_loss() {
     run_experiment 3 "combined_ld_gc_cb_loss" \
         "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
         "--cb_loss_type combined --ld_density_radius 0.5 --gc_context_k 32 --gc_context_weight 0.5" \
-        "${GCCB_CHECKPOINT}" \
+        "" \
         "${combined_log_dir}"
 }
 
 # Experiment 4: Ablation on LD-CB radius 'r'
-# Test different radius values starting from LD-CB checkpoint
+# Test different radius values, training from scratch.
 # Aligned with paper Table: 0.25, 1.0, 2.0 (default is 0.5)
 exp4_ld_cb_radius_ablation() {
     print_header "ABLATION STUDY: LD-CB Density Radius 'r' (default=0.4m)"
@@ -191,16 +204,18 @@ exp4_ld_cb_radius_ablation() {
         local exp_id="4_ld_radius_${radius_str}"
         print_info "Testing density_radius = ${radius}m"
         
+        local timestamp=$(date '+%Y%m%d%H%M%S')
+        local ablation_log_dir="${LOG_ROOT}/ld_cb_radius_${radius_str}_${timestamp}"
         run_experiment "${exp_id}" "ld_cb_radius_${radius_str}" \
             "respointnet2_dp_fi_df_fc1_max_ld_cb_loss.yaml" \
             "--cb_loss_type ld --ld_density_radius ${radius}" \
-            "${LDCB_CHECKPOINT}" \
-            "${LDCB_LOG_DIR}/ablation_r_${radius_str}" # Use sub-directory for ablation logs
+            "" \
+            "${ablation_log_dir}" 
     done
 }
 
 # Experiment 5: Ablation on GC-CB neighborhood size 'k'
-# Test different k values starting from GC-CB checkpoint
+# Test different k values, training from scratch.
 # Main experiments now use k=32 as default.
 exp5_gc_cb_k_ablation() {
     print_header "ABLATION STUDY: GC-CB Neighborhood Size 'k' (default=16)"
@@ -209,11 +224,13 @@ exp5_gc_cb_k_ablation() {
         local exp_id="5_gc_k_${k}"
         print_info "Testing context_k = ${k}"
         
+        local timestamp=$(date '+%Y%m%d%H%M%S')
+        local ablation_log_dir="${LOG_ROOT}/gc_cb_k_${k}_${timestamp}"
         run_experiment "${exp_id}" "gc_cb_k${k}" \
             "respointnet2_dp_fi_df_fc1_max_gc_cb_loss.yaml" \
             "--cb_loss_type gc --gc_context_k ${k}" \
-            "${GCCB_CHECKPOINT}" \
-            "${GCCB_LOG_DIR}/ablation_k_${k}" # Use sub-directory for ablation logs
+            "" \
+            "${ablation_log_dir}" 
     done
 }
 
