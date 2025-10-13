@@ -44,3 +44,25 @@ export LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH}
 python setup.py install --user
 ```
 refs: https://i.askurl.cn/c3HVwVyU
+
+### numpy version is too high
+
+- Installed numpy 1.26.4 and six 1.17.0 in the conda environment
+
+
+### conda installing is very slow
+
+- use tsinghua source and mamaba to install packages
+```bash
+写入 ~/.condarc 为清华镜像, vi ~/.condarc, 写入以下内容:
+channels:
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/r
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/msys2
+  - https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/conda-forge
+show_channel_urls: true
+channel_priority: flexible
+
+安装 mamba：conda install -n base -c conda-forge mamba -y
+之后用 mamba 安装：mamba install matplotlib -y
+```
