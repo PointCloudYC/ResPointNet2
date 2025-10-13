@@ -10,14 +10,21 @@ conda install pytorch==1.13.1 torchvision==0.14.1 torchaudio==0.13.1 pytorch-cud
 
 conda install -c conda-forge opencv -y
 conda install -c anaconda pillow -y
+conda install -c conda-forge  termcolor tensorboard h5py easydict scikit-learn -y
+# pip3 install termcolor tensorboard h5py easydict scikit-learn
 # install open3d and plyfile for visualization
 conda install -c open3d-admin open3d -y
 conda install -c conda-forge plyfile -y
-conda install -c conda-forge  termcolor tensorboard h5py easydict scikit-learn -y
-# pip3 install termcolor tensorboard h5py easydict scikit-learn
 
 
 # install custom operators
+
+# assume CUDA 11.7 is installed and set as the default CUDA on the system
+# if not, please install CUDA 11.7 and set it as the default CUDA on the system
+# export CUDA_HOME=/usr/local/cuda-11.7
+# export CUDA_PATH=$CUDA_HOME
+# export PATH=$CUDA_HOME/bin:$PATH
+# export LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH}
 cd ops/cpp_wrappers
 sh compile_wrappers.sh
 cd ../pt_custom_ops

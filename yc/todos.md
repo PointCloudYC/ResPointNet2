@@ -16,7 +16,6 @@
 - FM
    - Point-Bert
    - Point-SAM
-   - ?
 
 
 ## problems
@@ -35,4 +34,13 @@
 ### compiling ops failed
 
 - 1) make sure the setuptools version < 60.0.0; `conda run -n torch pip install "setuptools<60.0"`, then the cpp_sampler is compiled successfully
-- 2) iJIT_NotifyEvent symbol error indicates a missing Intel VTune dependency. This is a known issue with certain PyTorch builds; `conda install intel-vtune-python-sdk -c intel`
+- 2) iJIT_NotifyEvent symbol error indicates a missing Intel VTune dependency. Use the following command to compile the ops(use CUDA 11.7 to compile the ops rather the default CUDA (which is 12.4)):
+```bash
+cd ops/pt_custom_ops
+export CUDA_HOME=/usr/local/cuda-11.7
+export CUDA_PATH=$CUDA_HOME
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:${LD_LIBRARY_PATH}
+python setup.py install --user
+```
+refs: https://i.askurl.cn/c3HVwVyU
