@@ -1,7 +1,11 @@
 ## temp todos
 **FSL methods**
-- why ResPointNet++ is so slow? 
-- allow to run PosPool, PseudoGrid(KPConv) into the ResPointNet++ repo: 1) config, 2)dataset, 3)model, 4)others
+- [x] allow to run PosPool, PseudoGrid(KPConv) into the ResPointNet++ repo: 1) config, 2)dataset, 3)model, 4)others
+  - [x] Added PosPool and PseudoGrid classes to models/local_aggregation_operators.py
+  - [x] Created config files: pospool_xyz_avg_a6000.yaml, pospool_sin_cos_avg_a6000.yaml, pseudo_grid_a6000.yaml
+  - [x] Created training scripts: run_psnet12_pospool_a6000.sh, run_psnet12_pseudogrid_a6000.sh
+  - [x] Updated utils/config.py with default config structures
+  - [x] Created documentation in docs/NEW_MODELS.md
 
 # Industrial3D Experiment TODOs (Deadline: 2025-10-30)
 
@@ -16,8 +20,8 @@ This list tracks the experiments planned for the Industrial3D benchmark.
 
 **Fully-Supervised Learning (FSL)**
 - [x] **ResPointNet++:** Adapt, train, and evaluate.
-- [ ] **PseudoGrid (KPConv):** Adapt, train, and evaluate.
-- [ ] **PosPool:** Adapt, train, and evaluate.
+- [x] **PseudoGrid (KPConv):** Adapt complete. Ready to train and evaluate.
+- [x] **PosPool:** Adapt complete. Ready to train and evaluate.
 - [ ] **RandLA-Net:** Adapt, train, and evaluate.
 
 **Weakly-Supervised Learning (WSL)**
@@ -44,6 +48,39 @@ This list tracks the experiments planned for the Industrial3D benchmark.
 
 
 ## problems
+### Refactor PSNet12 dataset loading for cross-platform compatibility
+
+- reason: Refactor PSNet12 dataset loading for cross-platform compatibility; If processed files are reused, the KDTrees will be different across platforms, leading to errors.
+- solution: Rebuild KDTrees on load in datasets/PSNet12.py
+
+
+### why ResPointNet++ is so slow? 
+
+- reason: the system is under malware attack, the system is very slow. Note: also from the program side, the ResPointNet++ is very slow due to reusing the previous KDTrees from the previous server, see Refactor PSNet12 dataset loading for cross-platform compatibility.
+- problem
+	- Continuous high CPU load (> 100 ×) from repeating `-bash` processes owned by `yc`.
+	- Killing the process or removing tmux/zsh sessions did not stop it.
+	- New PIDs appeared every few seconds and eventually saturated all cores.
+	- System load > 100, memory heavily used, making the server unusable for others.
+- root cause: A **malicious cron job** under user `yc` was launching a fake shell wrapper every minute.
+	- That directory mimicked a legitimate X11 path but contained a script (`upd`) that spawned many background `bash` processes — essentially a fork bomb / persistence implant.
+	- The same binary name `zsh` in `~/local/bin/zsh` was also a wrapper calling `bash`, keeping the loop alive.
+	- The malware maintained persistence through the user’s **crontab**, surviving reboot and manual kills.
+- sol.:
+```bash
+crontab -r  # or crontab -e and delete suspicious line
+rm -rf /var/tmp/.ICE-Unix/-bash
+pkill -9 -f '/var/tmp/.ICE-Unix/-bash'
+pkill -9 -u yc
+
+Remove the fake `~/local/bin/zsh`
+Install genuine `/usr/bin/zsh` or rebuild from package/source.
+
+loginctl terminate-user yc
+
+`ps -u yc`, `top` # check status
+```
+- future todos, see: https://i.askurl.cn/8aeT0vp8
 
 ### adjust settings for the new server (A6000)
 
