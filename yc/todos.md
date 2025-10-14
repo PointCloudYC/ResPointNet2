@@ -1,21 +1,46 @@
-## Benchmarking Industrial3D on full spectrum of DL paradigms(Deadline: 2025-10-25)
+## temp todos
+**FSL methods**
+- why ResPointNet++ is so slow? 
+- allow to run PosPool, PseudoGrid(KPConv) into the ResPointNet++ repo: 1) config, 2)dataset, 3)model, 4)others
 
-- FSL
-   - ResPointNet++
-   - PosPool
-   - PseudoGrid(KPConv)
-   - RandLA-Net
-   - PT v3
-   - KPConvX
-- WSL
-   - SQN
-   - CPCM
-- USL
-   - OcOc
-   - Jaw3D
-- FM
-   - Point-Bert
-   - Point-SAM
+# Industrial3D Experiment TODOs (Deadline: 2025-10-30)
+
+This list tracks the experiments planned for the Industrial3D benchmark.
+
+### Phase 1: Setup & Prerequisites
+- [x] Create isolated `conda`/`docker` environments for all models.
+- [x] Finalize data preparation and splitting scripts.
+- [x] Implement a unified evaluation script for all metrics.
+
+### Phase 2: Model Benchmarking
+
+**Fully-Supervised Learning (FSL)**
+- [x] **ResPointNet++:** Adapt, train, and evaluate.
+- [ ] **PseudoGrid (KPConv):** Adapt, train, and evaluate.
+- [ ] **PosPool:** Adapt, train, and evaluate.
+- [ ] **RandLA-Net:** Adapt, train, and evaluate.
+
+**Weakly-Supervised Learning (WSL)**
+- [ ] **SQN:** Adapt, train (1%, 5%, 10% labels), and evaluate.
+- [ ] **CPCM:** Adapt, train (1%, 5%, 10% labels), and evaluate. *(Stretch Goal)*
+
+**Self-Supervised Learning (SSL)**
+- [ ] **OcOc:** Pre-train, fine-tune (1%, 5%, 10% labels), and evaluate.
+- [ ] **GrowSP/LogoSP or PointCept:** Choose one, adapt, pre-train, fine-tune, and evaluate. *(User to decide which one)*
+
+**Foundation Models (FM)**
+- [ ] **Point-SAM:**
+    - [ ] Evaluate in zero-shot setting.
+    - [ ] Fine-tune and evaluate in few-shot setting (1%, 5%, 10% labels).
+
+### Phase 3: Analysis & Reporting
+- [ ] **Domain Challenge: Robustness:** Analyze model performance on cluttered/occluded data.
+- [ ] **Domain Challenge: Ambiguity:** Analyze confusion matrices and multi-modal input impact.
+- [ ] **Domain Challenge: Sparse Supervision:** Compare performance of WSL, SSL, and FMs with few labels.
+- [ ] Consolidate all results into tables for the paper.
+- [ ] Generate qualitative result visualizations.
+- [ ] Update `main.tex` with final results and findings.
+
 
 
 ## problems
