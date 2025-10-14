@@ -57,9 +57,9 @@ def parse_option():
     parser.add_argument('--early_stopping_patience', type=int, default=20, help='patience for early stopping')
 
     # CB loss parameters
-    parser.add_argument('--cb_loss_type', type=str, default='standard', 
+    parser.add_argument('--cb_loss_type', type=str, default='none', 
                        choices=['none', 'standard', 'ld', 'gc', 'combined'],
-                       help='CB loss variant: none (standard CE), standard (CB), ld (Local Density), gc (Geometric Context), combined (LD+GC)')
+                       help='Loss type: none (standard CE), standard (CB), ld (Local Density), gc (Geometric Context), combined (LD+GC)')
     parser.add_argument('--cb_beta', type=float, default=0.9999, help='CB loss beta parameter')
     parser.add_argument('--cb_gamma', type=float, default=2.0, help='CB loss gamma (focal) parameter')
     parser.add_argument('--cb_alpha', type=float, default=1.0, help='CB loss alpha (weighting) parameter')
@@ -576,6 +576,12 @@ if __name__ == "__main__":
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
     config.local_rank = local_rank
     
+    # Safer NCCL defaults for multi-GPU on different platforms
+    os.environ.setdefault('NCCL_ASYNC_ERROR_HANDLING', '1')
+    os.environ.setdefault('NCCL_P2P_LEVEL', 'NVL')  # prefer NVLink if present
+    os.environ.setdefault('NCCL_IB_DISABLE', '1')   # disable IB on boxes without IB
+    os.environ.setdefault('NCCL_SHM_DISABLE', '0')
+
     torch.cuda.set_device(local_rank)
     torch.distributed.init_process_group(backend='nccl', init_method='env://')
     torch.backends.cudnn.enabled = True
@@ -596,7 +602,11 @@ if __name__ == "__main__":
             os.system('cp %s %s' % (opt.cfg, config.log_dir))
         logger.info("Full config saved to {}".format(path))
     
+    # Synchronize before entering main to detect early hangs
     try:
+        if dist.get_world_size() > 1:
+            dist.barrier()
+            logger.info("Distributed barrier passed before main()")
         main(config)
     except RuntimeError as e:
         if "NCCL" in str(e) or "collective operation timeout" in str(e):

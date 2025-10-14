@@ -189,7 +189,10 @@ class PSNet12Seg(data.Dataset):
                 sub_cloud_file = os.path.join(self.data_dir, cloud_name + f'_{subsampling_parameter:.3f}_sub.pkl')
                 if os.path.exists(sub_cloud_file):
                     with open(sub_cloud_file, 'rb') as f:
-                        sub_points, sub_colors, sub_labels, search_tree = pickle.load(f)
+                        # Cross-platform robustness: ignore pickled KDTree and rebuild it
+                        sub_points, sub_colors, sub_labels, _search_tree = pickle.load(f)
+                    # Always rebuild KDTree to avoid incompatibilities across OS/Python/Sklearn
+                    search_tree = KDTree(sub_points, leaf_size=50)
                 else:
                     if subsampling_parameter > 0:
                         sub_points, sub_colors, sub_labels = grid_subsampling(cloud_points,
@@ -232,7 +235,9 @@ class PSNet12Seg(data.Dataset):
             with open(filename, 'rb') as f:
                 (self.clouds_points, self.clouds_points_colors, self.clouds_points_labels,
                  self.sub_clouds_points, self.sub_clouds_points_colors, self.sub_clouds_points_labels,
-                 self.sub_cloud_trees) = pickle.load(f)
+                 _sub_cloud_trees) = pickle.load(f)
+                # Rebuild KDTree objects to ensure compatibility across platforms
+                self.sub_cloud_trees = [KDTree(pts, leaf_size=50) for pts in self.sub_clouds_points]
                 print(f"{filename} loaded successfully")
 
         # prepare iteration indices

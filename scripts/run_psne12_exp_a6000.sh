@@ -12,7 +12,7 @@ dataset_name="psnet12"
 log_root="log/${dataset_name}"
 master_port_train=12346
 master_port_eval=12345
-patience=${1:-20}  # Early stopping patience (default 20)
+patience=${1:-50}  # Early stopping patience (default 20)
 
 # --- 1. Training ---
 echo "================================================="
@@ -28,7 +28,8 @@ time torchrun \
   function/train_psnet_dist.py \
   --dataset_name ${dataset_name} \
   --cfg cfgs/${dataset_name}/${config_name}.yaml \
-  --early_stopping_patience ${patience}
+  --early_stopping_patience ${patience} \
+  --cb_loss_type none
 
 echo "Training finished successfully."
 

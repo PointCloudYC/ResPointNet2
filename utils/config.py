@@ -24,7 +24,7 @@ config.use_cb_loss = False
 config.cb_beta = 0.9999
 config.cb_gamma = 3.0 # 3 for strong version
 config.cb_alpha = 2.0 # 2 for strong version
-config.cb_loss_type = 'standard' # none, standard, ld, gc
+config.cb_loss_type = 'none' # none, standard, ld, gc
 # local density aware cb loss
 config.ld_density_radius = 0.5
 config.ld_density_weight = 1.0
