@@ -148,3 +148,7 @@ preds.txt
 .cursor/**
 experiment_logs/**
 kernels/**
+
+
+# ignore CloserLook3D
+CloserLook3D/**

@@ -7,7 +7,7 @@ num_classes: 12
 input_features_dim: 4
 
 # A6000 optimizations: Increased batch size and workers
-batch_size: 16  # A6000 can handle larger batches
+batch_size: 32  # A6000 can handle larger batches; 16 20GB, 32 40GB.
 num_points: 15000
 num_workers: 8  # Better data loading throughput
 
