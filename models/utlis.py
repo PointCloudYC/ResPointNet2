@@ -183,7 +183,8 @@ def create_kernel_points(radius, num_kpoints, num_kernels, dimension, fixed):
         kernels = np.load(specific_kernel_file)
         print(f"============================>{specific_kernel_file} loaded <=======================")
         # print(kernels)
-    elif dist.get_rank() != 0:
+    elif dist.is_initialized() and dist.get_rank() != 0:
+        # Distributed training: non-rank-0 processes wait for rank-0 to create kernels
         while True:
             if os.path.exists(specific_kernel_file + '_finish'):
                 kernels = np.load(specific_kernel_file)

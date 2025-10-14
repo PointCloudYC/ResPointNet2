@@ -10,7 +10,7 @@ input_features_dim: 4
 # With 48GB VRAM, you can handle much larger batches
 # 6 batch → 24GB on 3090, so 16 batch → ~64GB total, but more efficient memory usage
 # Start with 16, can try 20-24 if stable
-batch_size: 16
+batch_size: 16 # A6000 can handle 16, ~ 43.5GB
 
 # CHANGED: Increased from 15000 to 20000 points
 # More points = better accuracy, A6000 can handle it

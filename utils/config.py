@@ -105,13 +105,25 @@ config.rng_seed = 0
 # ---------------------------------------------------------------------------- #
 # Local Aggregation options
 # ---------------------------------------------------------------------------- #
-config.local_aggregation_type = 'respointnet2'  # pospool, continuous_conv
+config.local_aggregation_type = 'respointnet2'  # respointnet2, pospool, pseudo_grid
 # respointnet2
 config.respointnet2 = edict()
 config.respointnet2.feature_type = 'dp_fj'  # dp_fj, fi_df, dp_fi_df
 config.respointnet2.num_mlps = 1
 config.respointnet2.reduction = 'max'
-# other types, similar to the structure of the respointnet2
+# pospool
+config.pospool = edict()
+config.pospool.position_embedding = 'xyz'  # xyz, sin_cos
+config.pospool.reduction = 'avg'  # max, avg, sum
+config.pospool.output_conv = False
+# pseudo_grid (KPConv)
+config.pseudo_grid = edict()
+config.pseudo_grid.fixed_kernel_points = 'center'  # center, verticals
+config.pseudo_grid.KP_influence = 'linear'  # constant, linear, gaussian
+config.pseudo_grid.KP_extent = 1.0
+config.pseudo_grid.num_kernel_points = 15
+config.pseudo_grid.convolution_mode = 'sum'
+config.pseudo_grid.output_conv = False
 
 def update_config(config_file):
     with open(config_file) as f:

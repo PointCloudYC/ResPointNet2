@@ -147,3 +147,4 @@ preds.txt
 # cursor rules
 .cursor/**
 experiment_logs/**
+kernels/**

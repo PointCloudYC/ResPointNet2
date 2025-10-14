@@ -1,0 +1,99 @@
+# PosPool with sin_cos position embedding for PSNet12, optimized for 2x A6000 (48GB each)
+# Sin-cos encoding may capture better spatial relationships than raw xyz
+
+datasets: 'psnet12'
+data_root: ''
+num_classes: 12
+input_features_dim: 4
+
+# A6000 optimizations: Increased batch size and workers
+batch_size: 16  # A6000 can handle larger batches
+num_points: 15000
+num_workers: 8  # Better data loading throughput
+
+# Data augmentation
+x_angle_range: 0.0
+y_angle_range: 0.0
+z_angle_range: 3.1415926
+scale_low: 0.7
+scale_high: 1.3
+noise_std: 0.001
+noise_clip: 0.05
+translate_range: 0.0
+color_drop: 0.2
+augment_symmetries:
+  - 1
+  - 0
+  - 0
+
+# ---------------------------------------------------------------------------- #
+# Model
+# ---------------------------------------------------------------------------- #
+backbone: 'resnet'
+head: 'resnet_scene_seg'
+radius: 0.1
+sampleDl: 0.04
+nsamples:
+  - 26
+  - 31
+  - 38
+  - 41
+  - 39
+npoints:
+  - 4096
+  - 1152
+  - 304
+  - 88
+width: 144
+depth: 2
+bottleneck_ratio: 2
+bn_momentum: 0.1
+
+# Scene segmentation specific
+in_radius: 2.0
+num_steps: 2000
+
+# ---------------------------------------------------------------------------- #
+# Training options
+# ---------------------------------------------------------------------------- #
+epochs: 600
+start_epoch: 1
+
+# A6000 optimizations: Scaled learning rate for larger batch
+base_learning_rate: 0.0267  # Scaled from 0.01 for batch_size 16
+
+lr_scheduler: 'step'
+optimizer: 'sgd'
+
+# A6000 optimizations: Added warmup for stability
+warmup_epoch: 5
+
+lr_decay_steps: 1
+lr_decay_rate: 0.9885531
+weight_decay: 0.001
+momentum: 0.98
+
+# ---------------------------------------------------------------------------- #
+# io and misc
+# ---------------------------------------------------------------------------- #
+load_path: ''
+print_freq: 10
+save_freq: 10
+val_freq: 10
+log_dir: './output'
+local_rank: 0
+
+# A6000 optimizations: Enable mixed precision training
+amp_opt_level: 'O1'
+
+rng_seed: 0
+
+# ---------------------------------------------------------------------------- #
+# Local Aggregation options - PosPool with sin_cos position embedding
+# ---------------------------------------------------------------------------- #
+local_aggregation_type: 'pospool'
+pospool:
+  position_embedding: 'sin_cos'  # sin_cos encoding for better spatial relationships
+  reduction: 'avg'  # max, avg, sum
+  output_conv: False
+
